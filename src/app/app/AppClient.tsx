@@ -1,0 +1,403 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { JournalTemplatePicker } from "@/components/JournalTemplatePicker";
+import { StreakBadge } from "@/components/StreakBadge";
+import { DailyPromptCard } from "@/components/DailyPromptCard";
+
+type JournalSummary = {
+  id: string;
+  name: string;
+  owner_id: string;
+  archived_at: string | null;
+  created_at: string;
+  template_type?: string;
+};
+
+type AppClientProps = {
+  journals: JournalSummary[];
+  archivedJournals: JournalSummary[];
+  hasJournals: boolean;
+  userId: string | null;
+};
+
+export default function AppClient({ journals, archivedJournals, hasJournals, userId }: AppClientProps) {
+  const [creating, setCreating] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joinStatus, setJoinStatus] = useState<"idle" | "pending" | "error" | "success">("idle");
+  const [joinMessage, setJoinMessage] = useState<string | null>(null);
+  const [createStatus, setCreateStatus] = useState<"idle" | "pending" | "error">("idle");
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const hasList = journals.length > 0;
+
+  const joinLabel = useMemo(() => {
+    if (joinStatus === "pending") return "Joining...";
+    if (joinStatus === "success") return "Joined";
+    return "Join notebook";
+  }, [joinStatus]);
+
+  async function handleCreateNotebook() {
+    if (creating) return;
+    setShowTemplatePicker(true);
+  }
+
+  async function handleCreateWithTemplate(templateType: string) {
+    setShowTemplatePicker(false);
+    setCreating(true);
+    setCreateStatus("pending");
+    try {
+      const res = await fetch("/api/journals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_type: templateType }),
+      });
+      const payload = (await res.json()) as { id?: string; message?: string; details?: string | null; hint?: string | null; code?: string | null };
+      if (!res.ok || !payload.id) {
+        throw new Error(payload.message ?? payload.details ?? payload.hint ?? "create_failed");
+      }
+      window.location.assign(`/app/journals/${payload.id}`);
+    } catch (err) {
+      setCreateStatus("error");
+      const message = err instanceof Error ? err.message : "";
+      setCreateMessage(
+        message.includes("missing_session")
+          ? "Please sign in again to create a notebook."
+          : message.includes("relation") && message.includes("journals")
+            ? "Database tables are missing. Run supabase/schema.sql in Supabase."
+            : "Something went wrong creating the notebook. Try again."
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleJoinNotebook() {
+    if (!inviteCode.trim()) return;
+    setJoinStatus("pending");
+    try {
+      const res = await fetch("/api/invites/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCode.trim() }),
+      });
+      const payload = (await res.json()) as { journalId?: string; message?: string };
+      if (!res.ok || !payload.journalId) {
+        throw new Error(payload.message ?? "invalid");
+      }
+      setJoinStatus("success");
+      setJoinMessage(null);
+      window.location.assign(`/app/journals/${payload.journalId}`);
+    } catch (err) {
+      setJoinStatus("error");
+      const message = err instanceof Error ? err.message : "";
+      setJoinMessage(
+        message.includes("invite_expired")
+          ? "That invite has expired."
+          : message.includes("invite_used")
+            ? "That invite has already been used."
+            : "That invite code did not work."
+      );
+    }
+  }
+
+  async function handleCreateInvite(journalId: string) {
+    const code = generateInviteCode();
+    const res = await fetch("/api/invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ journalId, code }),
+    });
+    const payload = (await res.json()) as { code?: string };
+    if (!res.ok || !payload.code) return;
+    const url = `${window.location.origin}/app/invite/${payload.code}`;
+    await navigator.clipboard?.writeText(url).catch(() => {});
+    alert(`Invite link copied:\n${url}\n\nInvite code: ${payload.code}`);
+  }
+
+  async function handleRenameNotebook(journalId: string) {
+    if (!renameValue.trim()) return;
+    await fetch(`/api/journals/${journalId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: renameValue.trim() }),
+    });
+    setRenamingId(null);
+    setRenameValue("");
+    window.location.reload();
+  }
+
+  async function handleArchiveNotebook(journalId: string) {
+    await fetch(`/api/journals/${journalId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: true }),
+    });
+    window.location.reload();
+  }
+
+  async function handleRestoreNotebook(journalId: string) {
+    await fetch(`/api/journals/${journalId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: false }),
+    });
+    window.location.reload();
+  }
+
+  async function handleDeleteNotebook(journalId: string) {
+    const confirmed = window.confirm(
+      "Delete this notebook and all entries? This cannot be undone."
+    );
+    if (!confirmed) return;
+    await fetch(`/api/journals/${journalId}`, { method: "DELETE" });
+    window.location.reload();
+  }
+
+  return (
+    <div className="mt-10">
+      {showTemplatePicker && (
+        <JournalTemplatePicker
+          onSelect={handleCreateWithTemplate}
+          onClose={() => setShowTemplatePicker(false)}
+        />
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <StreakBadge />
+        <Link
+          href="/app/settings"
+          className="p-2 rounded-full bg-card ring-1 ring-stroke hover:bg-card-strong transition-colors"
+        >
+          <svg className="w-5 h-5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </Link>
+      </div>
+      {journals.length > 0 && (
+        <div className="mb-6">
+          <DailyPromptCard journalId={journals[0].id} />
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-6 rounded-3xl bg-card p-6 ring-1 ring-stroke shadow-[0_20px_50px_var(--shadow)]">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-ink-soft">
+            Start or join
+          </p>
+          <h2 className="mt-3 text-xl font-semibold text-foreground">
+            Create a notebook or join with a code.
+          </h2>
+          <p className="mt-2 text-sm text-ink-muted">
+            You can share by link later, or keep things private.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {hasList ? (
+            <button
+              type="button"
+              onClick={handleCreateNotebook}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-accent-strong"
+            >
+              {createStatus === "pending" ? "Creating..." : "Create notebook"}
+            </button>
+          ) : null}
+          <div className="flex items-center gap-2 rounded-full bg-input px-3 py-2 text-sm ring-1 ring-input-border">
+            <input
+              value={inviteCode}
+              onChange={(event) => {
+                setInviteCode(event.target.value.toUpperCase());
+                setJoinStatus("idle");
+                setJoinMessage(null);
+              }}
+              placeholder="Invite code"
+              className="w-32 bg-transparent text-sm text-foreground placeholder:text-ink-soft focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleJoinNotebook}
+              className="text-xs font-semibold text-foreground"
+            >
+              {joinLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {!hasList ? (
+        <div className="mt-12 rounded-3xl border border-dashed border-stroke bg-card/50 p-10 text-center shadow-[0_24px_60px_var(--shadow)]">
+          <p className="text-sm uppercase tracking-[0.25em] text-ink-soft">
+            Empty for now
+          </p>
+          <h2 className="mt-4 text-2xl font-semibold text-foreground font-[family:var(--font-display)]">
+            Create your first notebook, whenever you are in the mood.
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-ink-muted">
+            Journals are for thoughts and experiences, not tasks. You can keep it
+            solo or invite others.
+          </p>
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={handleCreateNotebook}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-accent-strong"
+            >
+              {createStatus === "pending" ? "Creating..." : "Create notebook"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-10 grid gap-4 md:grid-cols-2">
+          {journals.map((journal) => (
+            <article
+              key={journal.id}
+              className="rounded-3xl bg-card p-6 ring-1 ring-stroke shadow-[0_20px_50px_var(--shadow)] transition hover:-translate-y-0.5"
+            >
+              <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
+                Notebook
+              </p>
+              <h2 className="mt-3 text-xl font-semibold text-foreground">
+                {journal.name}
+              </h2>
+              <p className="mt-2 text-sm text-ink-muted">
+                Your shared space for reflection.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => window.location.assign(`/app/journals/${journal.id}`)}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-accent px-4 text-xs font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-accent-strong"
+                >
+                  Open
+                </button>
+                {journal.owner_id === userId ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleCreateInvite(journal.id)}
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-card px-4 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
+                    >
+                      Share link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenamingId(journal.id);
+                        setRenameValue(journal.name);
+                      }}
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-card px-4 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleArchiveNotebook(journal.id)}
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-card px-4 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
+                    >
+                      Archive
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              {renamingId === journal.id ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <input
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    className="h-10 w-full rounded-full bg-input px-4 text-sm text-foreground ring-1 ring-input-border focus:outline-none focus:ring-2 focus:ring-accent/40 sm:w-64"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRenameNotebook(journal.id)}
+                    className="inline-flex h-10 items-center justify-center rounded-full bg-accent px-4 text-xs font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-accent-strong"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenamingId(null);
+                      setRenameValue("");
+                    }}
+                    className="inline-flex h-10 items-center justify-center rounded-full bg-card px-4 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      )}
+
+      {archivedJournals.length > 0 ? (
+        <div className="mt-12">
+          <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
+            Archived notebooks
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {archivedJournals.map((journal) => (
+              <article
+                key={journal.id}
+                className="rounded-3xl bg-card/60 p-6 ring-1 ring-stroke shadow-[0_20px_50px_var(--shadow)]"
+              >
+                <h3 className="text-lg font-semibold text-foreground">
+                  {journal.name}
+                </h3>
+                <p className="mt-2 text-sm text-ink-muted">
+                  Archived. Restore anytime.
+                </p>
+                {journal.owner_id === userId ? (
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreNotebook(journal.id)}
+                      className="inline-flex h-9 items-center justify-center rounded-full bg-card px-3 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNotebook(journal.id)}
+                      className="inline-flex h-9 items-center justify-center rounded-full bg-card px-3 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {createStatus === "error" ? (
+        <p className="mt-4 text-xs text-ink-soft">
+          {createMessage ?? "Something went wrong creating the notebook. Try again."}
+        </p>
+      ) : null}
+      {joinStatus === "error" ? (
+        <p className="mt-4 text-xs text-ink-soft">
+          {joinMessage ?? "That invite code did not work. Check the code and try again."}
+        </p>
+      ) : null}
+      {hasJournals && !hasList ? (
+        <p className="mt-4 text-xs text-ink-soft">
+          Create your first notebook to enable gentle reminder settings.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function generateInviteCode() {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 8; i += 1) {
+    out += letters[Math.floor(Math.random() * letters.length)];
+  }
+  return out;
+}

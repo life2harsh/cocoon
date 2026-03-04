@@ -1,26 +1,407 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #1a2428;
+  --foreground: #e8f0f2;
+  --ink: #232d31;
+  --ink-hover: #2a363c;
+  --ink-muted: #a8b8bf;
+  --ink-soft: #7a8e96;
+  --ocean: #4a8a98;
+  --ocean-deep: #3a6e7d;
+  --ocean-soft: #6aa8b8;
+  --seafoam: #a8d5de;
+  --accent: #4a8a98;
+  --accent-strong: #3a6e7d;
+  --accent-soft: #2a4e57;
+  --sage: #6a8a76;
+  --calm: #6a8290;
+  --mist: #e8f4f6;
+  --sand: #f5f7f8;
+  --card: rgba(35, 45, 50, 0.82);
+  --card-strong: rgba(42, 54, 60, 0.95);
+  --stroke: rgba(168, 213, 222, 0.12);
+  --shadow: rgba(0, 0, 0, 0.5);
+  --glow: rgba(74, 138, 152, 0.4);
+  --input: rgba(30, 40, 44, 0.9);
+  --input-border: rgba(168, 213, 222, 0.16);
+  --input-focus: rgba(74, 138, 152, 0.5);
+  --hero-spot-1: rgba(74, 138, 152, 0.25);
+  --hero-spot-2: rgba(106, 138, 118, 0.18);
+  --hero-base-start: #1a2428;
+  --hero-base-end: #232d31;
+  --glow-warm: rgba(74, 138, 152, 0.35);
+  --glow-sage: rgba(106, 138, 118, 0.2);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --background: #f5f8f9;
+  --foreground: #2a363c;
+  --ink: #232d31;
+  --ink-hover: #2a363c;
+  --ink-muted: #6a7e88;
+  --ink-soft: #8a9aa4;
+  --ocean: #3a6e7d;
+  --ocean-deep: #2a4e57;
+  --ocean-soft: #5a9aab;
+  --seafoam: #c8e6ec;
+  --accent: #3a6e7d;
+  --accent-strong: #2a4e57;
+  --accent-soft: #c8e6ec;
+  --sage: #5a7a66;
+  --calm: #6a8290;
+  --mist: #e8f4f6;
+  --sand: #fafbfb;
+  --card: rgba(255, 255, 255, 0.85);
+  --card-strong: rgba(248, 252, 253, 0.95);
+  --stroke: rgba(58, 110, 125, 0.15);
+  --shadow: rgba(42, 54, 60, 0.15);
+  --glow: rgba(58, 110, 125, 0.2);
+  --input: rgba(255, 255, 255, 0.9);
+  --input-border: rgba(58, 110, 125, 0.2);
+  --input-focus: rgba(58, 110, 125, 0.4);
+  --hero-spot-1: rgba(200, 230, 236, 0.5);
+  --hero-spot-2: rgba(200, 220, 210, 0.2);
+  --hero-base-start: #f5f8f9;
+  --hero-base-end: #ecf2f4;
+  --glow-warm: rgba(58, 110, 125, 0.25);
+  --glow-sage: rgba(90, 122, 102, 0.18);
+}
+
+[data-theme="lavender"] {
+  color-scheme: dark;
+  --background: #1f1a24;
+  --foreground: #efe8f2;
+  --ink: #241e28;
+  --ink-hover: #2d2634;
+  --ink-muted: #b8a8bf;
+  --ink-soft: #8a7a8e;
+  --ocean: #9a7aa8;
+  --ocean-deep: #7a5a88;
+  --ocean-soft: #ba9ac8;
+  --seafoam: #d8c8e8;
+  --accent: #9a7aa8;
+  --accent-strong: #7a5a88;
+  --accent-soft: #5a3a68;
+  --sage: #7a7a6a;
+  --calm: #7a6a82;
+  --mist: #f0e8f5;
+  --sand: #f5f0f8;
+  --card: rgba(36, 30, 40, 0.82);
+  --card-strong: rgba(45, 38, 50, 0.95);
+  --stroke: rgba(180, 160, 200, 0.12);
+  --shadow: rgba(0, 0, 0, 0.5);
+  --glow: rgba(154, 122, 168, 0.4);
+  --input: rgba(30, 24, 34, 0.9);
+  --input-border: rgba(180, 160, 200, 0.16);
+  --input-focus: rgba(154, 122, 168, 0.5);
+  --hero-spot-1: rgba(154, 122, 168, 0.25);
+  --hero-spot-2: rgba(122, 122, 106, 0.18);
+  --hero-base-start: #1f1a24;
+  --hero-base-end: #241e28;
+  --glow-warm: rgba(154, 122, 168, 0.35);
+  --glow-sage: rgba(122, 122, 106, 0.2);
+}
+
+[data-theme="lavender-light"] {
+  color-scheme: light;
+  --background: #f8f5fa;
+  --foreground: #2a2430;
+  --ink: #241e28;
+  --ink-hover: #2d2634;
+  --ink-muted: #6a5a72;
+  --ink-soft: #8a7a92;
+  --ocean: #7a5a88;
+  --ocean-deep: #5a3a68;
+  --ocean-soft: #9a7aa8;
+  --seafoam: #e8d8f0;
+  --accent: #7a5a88;
+  --accent-strong: #5a3a68;
+  --accent-soft: #e8d8f0;
+  --sage: #6a6a5a;
+  --calm: #7a6a82;
+  --mist: #f5eef8;
+  --sand: #faf5fc;
+  --card: rgba(255, 255, 255, 0.85);
+  --card-strong: rgba(250, 245, 252, 0.95);
+  --stroke: rgba(122, 90, 136, 0.15);
+  --shadow: rgba(42, 36, 48, 0.15);
+  --glow: rgba(122, 90, 136, 0.2);
+  --input: rgba(255, 255, 255, 0.9);
+  --input-border: rgba(122, 90, 136, 0.2);
+  --input-focus: rgba(122, 90, 136, 0.4);
+  --hero-spot-1: rgba(232, 216, 240, 0.5);
+  --hero-spot-2: rgba(200, 210, 200, 0.2);
+  --hero-base-start: #f8f5fa;
+  --hero-base-end: #f2eef5;
+  --glow-warm: rgba(122, 90, 136, 0.25);
+  --glow-sage: rgba(90, 100, 90, 0.18);
+}
+
+[data-theme="sage"] {
+  color-scheme: dark;
+  --background: #1a2018;
+  --foreground: #e8f0e8;
+  --ink: #222822;
+  --ink-hover: #2a322a;
+  --ink-muted: #a8b8a8;
+  --ink-soft: #7a8a72;
+  --ocean: #6a8a5a;
+  --ocean-deep: #4a6a3a;
+  --ocean-soft: #8aaa7a;
+  --seafoam: #c8e8c0;
+  --accent: #6a8a5a;
+  --accent-strong: #4a6a3a;
+  --accent-soft: #3a4a2a;
+  --sage: #5a7a4a;
+  --calm: #6a7a5a;
+  --mist: #f0f5f0;
+  --sand: #f5f8f5;
+  --card: rgba(34, 40, 34, 0.82);
+  --card-strong: rgba(42, 50, 42, 0.95);
+  --stroke: rgba(168, 200, 168, 0.12);
+  --shadow: rgba(0, 0, 0, 0.5);
+  --glow: rgba(106, 138, 90, 0.4);
+  --input: rgba(28, 34, 28, 0.9);
+  --input-border: rgba(168, 200, 168, 0.16);
+  --input-focus: rgba(106, 138, 90, 0.5);
+  --hero-spot-1: rgba(106, 138, 90, 0.25);
+  --hero-spot-2: rgba(90, 122, 74, 0.18);
+  --hero-base-start: #1a2018;
+  --hero-base-end: #222822;
+  --glow-warm: rgba(106, 138, 90, 0.35);
+  --glow-sage: rgba(90, 122, 74, 0.2);
+}
+
+[data-theme="sage-light"] {
+  color-scheme: light;
+  --background: #f5f8f5;
+  --foreground: #2a322a;
+  --ink: #222822;
+  --ink-hover: #2a322a;
+  --ink-muted: #5a6a52;
+  --ink-soft: #7a8a72;
+  --ocean: #4a6a3a;
+  --ocean-deep: #3a4a2a;
+  --ocean-soft: #6a8a4a;
+  --seafoam: #d8f0d0;
+  --accent: #4a6a3a;
+  --accent-strong: #3a4a2a;
+  --accent-soft: #d8f0d0;
+  --sage: #4a5a3a;
+  --calm: #5a6a4a;
+  --mist: #edf5ed;
+  --sand: #f8fbf8;
+  --card: rgba(255, 255, 255, 0.85);
+  --card-strong: rgba(248, 252, 248, 0.95);
+  --stroke: rgba(74, 106, 58, 0.15);
+  --shadow: rgba(42, 50, 42, 0.15);
+  --glow: rgba(74, 106, 58, 0.2);
+  --input: rgba(255, 255, 255, 0.9);
+  --input-border: rgba(74, 106, 58, 0.2);
+  --input-focus: rgba(74, 106, 58, 0.4);
+  --hero-spot-1: rgba(216, 240, 208, 0.5);
+  --hero-spot-2: rgba(200, 220, 200, 0.2);
+  --hero-base-start: #f5f8f5;
+  --hero-base-end: #edf5ed;
+  --glow-warm: rgba(74, 106, 58, 0.25);
+  --glow-sage: rgba(80, 100, 70, 0.18);
+}
+
+[data-theme="peach"] {
+  color-scheme: dark;
+  --background: #201a14;
+  --foreground: #f2eae4;
+  --ink: #2a221c;
+  --ink-hover: #342c26;
+  --ink-muted: #c8b8a8;
+  --ink-soft: #9a8a7a;
+  --ocean: #c89a7a;
+  --ocean-deep: #a87a5a;
+  --ocean-soft: #e8ba9a;
+  --seafoam: #f0d8c0;
+  --accent: #c89a7a;
+  --accent-strong: #a87a5a;
+  --accent-soft: #785a3a;
+  --sage: #7a7a5a;
+  --calm: #8a7a6a;
+  --mist: #f8f0e8;
+  --sand: #faf5f0;
+  --card: rgba(42, 34, 28, 0.82);
+  --card-strong: rgba(52, 44, 36, 0.95);
+  --stroke: rgba(200, 180, 160, 0.12);
+  --shadow: rgba(0, 0, 0, 0.5);
+  --glow: rgba(200, 154, 122, 0.4);
+  --input: rgba(34, 26, 20, 0.9);
+  --input-border: rgba(200, 180, 160, 0.16);
+  --input-focus: rgba(200, 154, 122, 0.5);
+  --hero-spot-1: rgba(200, 154, 122, 0.25);
+  --hero-spot-2: rgba(122, 122, 90, 0.18);
+  --hero-base-start: #201a14;
+  --hero-base-end: #2a221c;
+  --glow-warm: rgba(200, 154, 122, 0.35);
+  --glow-sage: rgba(122, 122, 90, 0.2);
+}
+
+[data-theme="peach-light"] {
+  color-scheme: light;
+  --background: #faf5f0;
+  --foreground: #2a221c;
+  --ink: #2a221c;
+  --ink-hover: #342c26;
+  --ink-muted: #6a5a4a;
+  --ink-soft: #8a7a6a;
+  --ocean: #a87a5a;
+  --ocean-deep: #785a3a;
+  --ocean-soft: #c89a7a;
+  --seafoam: #f0e0d0;
+  --accent: #a87a5a;
+  --accent-strong: #785a3a;
+  --accent-soft: #f0e0d0;
+  --sage: #6a6a4a;
+  --calm: #7a6a5a;
+  --mist: #f8f0e8;
+  --sand: #fcfaf8;
+  --card: rgba(255, 255, 255, 0.85);
+  --card-strong: rgba(252, 250, 245, 0.95);
+  --stroke: rgba(168, 122, 90, 0.15);
+  --shadow: rgba(42, 34, 28, 0.15);
+  --glow: rgba(168, 122, 90, 0.2);
+  --input: rgba(255, 255, 255, 0.9);
+  --input-border: rgba(168, 122, 90, 0.2);
+  --input-focus: rgba(168, 122, 90, 0.4);
+  --hero-spot-1: rgba(240, 224, 208, 0.5);
+  --hero-spot-2: rgba(210, 220, 210, 0.2);
+  --hero-base-start: #faf5f0;
+  --hero-base-end: #f5ede5;
+  --glow-warm: rgba(168, 122, 90, 0.25);
+  --glow-sage: rgba(100, 110, 90, 0.18);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ink: var(--ink);
+  --color-ink-hover: var(--ink-hover);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-soft: var(--ink-soft);
+  --color-ocean: var(--ocean);
+  --color-ocean-deep: var(--ocean-deep);
+  --color-ocean-soft: var(--ocean-soft);
+  --color-seafoam: var(--seafoam);
+  --color-calm: var(--calm);
+  --color-mist: var(--mist);
+  --color-sand: var(--sand);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-sage: var(--sage);
+  --color-card: var(--card);
+  --color-card-strong: var(--card-strong);
+  --color-stroke: var(--stroke);
+  --color-input: var(--input);
+  --color-input-border: var(--input-border);
+  --color-input-focus: var(--input-focus);
+  --color-glow: var(--glow);
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--glow-warm);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -16px, 0);
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+@layer utilities {
+  .input-shell {
+    background: var(--input);
+    border: 1px solid var(--input-border);
+  }
+  .input-shell:focus-within {
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+  .input-shell input::placeholder,
+  .input-shell textarea::placeholder {
+    color: var(--ink-soft);
+  }
+  .cocoon-shell {
+    background:
+      radial-gradient(
+        1200px 700px at 20% 10%,
+        var(--hero-spot-1),
+        transparent 60%
+      ),
+      radial-gradient(
+        900px 600px at 90% 15%,
+        var(--hero-spot-2),
+        transparent 65%
+      ),
+      linear-gradient(180deg, var(--hero-base-start), var(--hero-base-end));
+  }
+  .cocoon-glow-warm {
+    background: radial-gradient(circle, var(--glow-warm), transparent 60%);
+  }
+  .cocoon-glow-sage {
+    background: radial-gradient(circle, var(--glow-sage), transparent 65%);
+  }
+  .animate-rise {
+    animation: rise 0.85s ease-out both;
+  }
+  .animate-rise-delay {
+    animation: rise 0.85s ease-out 0.18s both;
+  }
+  .animate-rise-delay-2 {
+    animation: rise 0.85s ease-out 0.36s both;
+  }
+  .animate-float {
+    animation: float 14s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float 20s ease-in-out infinite;
+  }
+  .animate-glow {
+    animation: glow 6s ease-in-out infinite;
+  }
 }

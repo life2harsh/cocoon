@@ -22,16 +22,41 @@
 
 # misc
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# direnv
+.direnv/
+.envrc
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# caches
+.eslintcache
+.cache/
 
 # vercel
 .vercel
@@ -39,3 +64,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Serwist
+/public/sw*
+/public/swe-worker*
+
+# supabase test schemas
+supabase/
