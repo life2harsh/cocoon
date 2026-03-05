@@ -14,13 +14,14 @@ export default async function InvitePage({ params }: InvitePageProps) {
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/app/invite/${code}`);
 
-  const { data: invite } = await supabase
+  const { data: invite, error: inviteError } = await supabase
     .from("journal_invites")
     .select("id, journal_id, expires_at, used_at")
     .eq("code", code)
     .maybeSingle();
 
-  if (!invite) redirect("/app?invite=invalid");
+  if (inviteError) redirect(`/app?invite=error&reason=${encodeURIComponent(inviteError.message)}`);
+  if (!invite) redirect("/app?invite=not_found");
   if (invite.used_at) redirect("/app?invite=used");
   if (invite.expires_at && new Date(invite.expires_at) < new Date())
     redirect("/app?invite=expired");
@@ -41,7 +42,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
         role: "member",
       });
 
-    if (memberError) redirect("/app?invite=invalid");
+    if (memberError) redirect(`/app?invite=join_failed&reason=${encodeURIComponent(memberError.message)}`);
 
     await supabase
       .from("journal_invites")
