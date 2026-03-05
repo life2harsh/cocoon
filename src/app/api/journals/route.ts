@@ -54,11 +54,29 @@ export async function POST(request: Request) {
       return Response.json({ error: error?.message ?? "insert_failed" }, { status: 500 });
     }
 
-    await supabase.from("journal_templates").upsert({
-      journal_id: journal.id,
-      template_type: templateType,
-      ai_prompts_enabled: true,
-    });
+    const { error: memberError } = await supabase
+      .from("journal_members")
+      .upsert({
+        journal_id: journal.id,
+        user_id: user.id,
+        role: "owner",
+      }, { onConflict: "journal_id,user_id" });
+
+    if (memberError) {
+      return Response.json({ error: memberError.message }, { status: 500 });
+    }
+
+    const { error: templateError } = await supabase
+      .from("journal_templates")
+      .upsert({
+        journal_id: journal.id,
+        template_type: templateType,
+        ai_prompts_enabled: true,
+      });
+
+    if (templateError) {
+      return Response.json({ error: templateError.message }, { status: 500 });
+    }
 
     return Response.json({ ...journal, template_type: templateType });
   } catch (e) {

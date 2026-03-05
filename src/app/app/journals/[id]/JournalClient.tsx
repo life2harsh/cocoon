@@ -60,6 +60,12 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
   const [renameValue, setRenameValue] = useState(journal.name);
   const [descValue, setDescValue] = useState(journal.description || "");
   const [savingSettings, setSavingSettings] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"archive" | "delete" | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -139,6 +145,11 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
   }
 
   async function handleShare() {
+    setShowMenu(false);
+    setShareStatus("loading");
+    setShowShareModal(true);
+    setShareUrl(null);
+    setShareCode(null);
     const code = generateInviteCode();
     const res = await fetch("/api/invites", {
       method: "POST",
@@ -146,11 +157,14 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
       body: JSON.stringify({ journalId: journal.id, code }),
     });
     const payload = (await res.json()) as { code?: string };
-    if (!res.ok || !payload.code) return;
+    if (!res.ok || !payload.code) {
+      setShareStatus("error");
+      return;
+    }
     const url = `${window.location.origin}/app/invite/${payload.code}`;
-    await navigator.clipboard?.writeText(url).catch(() => {});
-    alert(`Invite link copied:\n${url}\n\nInvite code: ${payload.code}`);
-    setShowMenu(false);
+    setShareUrl(url);
+    setShareCode(payload.code);
+    setShareStatus("ready");
   }
 
   async function handleSaveSettings() {
@@ -176,7 +190,6 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
   }
 
   async function handleArchive() {
-    if (!confirm("Archive this notebook?")) return;
     await fetch(`/api/journals/${journal.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -186,9 +199,18 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
   }
 
   async function handleDeleteNotebook() {
-    if (!confirm("Delete this notebook and all entries? This cannot be undone.")) return;
     await fetch(`/api/journals/${journal.id}`, { method: "DELETE" });
     window.location.href = "/app";
+  }
+
+  async function handleConfirmAction() {
+    if (!confirmAction || confirming) return;
+    setConfirming(true);
+    if (confirmAction === "archive") {
+      await handleArchive();
+      return;
+    }
+    await handleDeleteNotebook();
   }
 
   return (
@@ -255,6 +277,112 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
         </div>
       )}
 
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setShowShareModal(false)} />
+          <div className="relative w-full max-w-md bg-card-strong rounded-3xl ring-1 ring-stroke shadow-2xl animate-rise overflow-hidden">
+            <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-foreground font-[family:var(--font-display)]">
+                Share notebook
+              </h2>
+              <button onClick={() => setShowShareModal(false)} className="p-2 -m-2 rounded-full hover:bg-ink/20 transition-colors">
+                <svg className="w-5 h-5 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 pb-6 space-y-4">
+              {shareStatus === "loading" && (
+                <p className="text-sm text-ink-soft">Creating a share link...</p>
+              )}
+              {shareStatus === "error" && (
+                <p className="text-sm text-ink-soft">Could not create a share link. Try again.</p>
+              )}
+              {shareStatus === "ready" && shareUrl && shareCode && (
+                <>
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.2em] text-ink-soft">Invite link</label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={shareUrl}
+                        className="w-full h-11 rounded-full bg-input px-4 text-sm text-foreground ring-1 ring-input-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(shareUrl).catch(() => {})}
+                        className="h-11 px-4 rounded-full bg-card text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:bg-card-strong"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.2em] text-ink-soft">Invite code</label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={shareCode}
+                        className="w-full h-11 rounded-full bg-input px-4 text-sm text-foreground ring-1 ring-input-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(shareCode).catch(() => {})}
+                        className="h-11 px-4 rounded-full bg-card text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:bg-card-strong"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setConfirmAction(null)} />
+          <div className="relative w-full max-w-md bg-card-strong rounded-3xl ring-1 ring-stroke shadow-2xl animate-rise overflow-hidden">
+            <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-foreground font-[family:var(--font-display)]">
+                {confirmAction === "archive" ? "Archive notebook" : "Delete notebook"}
+              </h2>
+              <button onClick={() => setConfirmAction(null)} className="p-2 -m-2 rounded-full hover:bg-ink/20 transition-colors">
+                <svg className="w-5 h-5 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 pb-6 space-y-4">
+              <p className="text-sm text-ink-soft">
+                {confirmAction === "archive"
+                  ? "Archive this notebook? You can restore it anytime from the home screen."
+                  : "Delete this notebook and all entries? This cannot be undone."}
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="h-10 px-4 rounded-full bg-card text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:bg-card-strong"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAction}
+                  disabled={confirming}
+                  className="h-10 px-4 rounded-full bg-accent text-xs font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-accent-strong disabled:opacity-50"
+                >
+                  {confirming ? "Working..." : confirmAction === "archive" ? "Archive" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto max-w-5xl px-6 py-16 animate-rise motion-reduce:animate-none">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
@@ -309,7 +437,7 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
                 </button>
                 {journal.role === "owner" && (
                   <button
-                    onClick={handleArchive}
+                    onClick={() => { setShowMenu(false); setConfirmAction("archive"); }}
                     className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-ink/10 transition-colors flex items-center gap-3"
                   >
                     <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,7 +448,7 @@ export default function JournalClient({ journal, entries, members, userId }: Jou
                 )}
                 {journal.role === "owner" && (
                   <button
-                    onClick={handleDeleteNotebook}
+                    onClick={() => { setShowMenu(false); setConfirmAction("delete"); }}
                     className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-ink/10 transition-colors flex items-center gap-3"
                   >
                     <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">

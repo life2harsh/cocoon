@@ -1,17 +1,15 @@
 export default function OfflinePage() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16 animate-rise motion-reduce:animate-none">
-      <p className="text-sm font-medium tracking-wide text-ink-soft">Offline</p>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground font-[family:var(--font-display)]">
-        You’re not connected.
-      </h1>
-      <p className="mt-4 text-base leading-7 text-ink-muted">
-        Reconnect to sync your journals. If you already opened the app once, you
-        can keep browsing cached pages.
-      </p>
-      <p className="mt-8 text-sm text-ink-soft">
-        Tip: add this app to your home screen for a smoother feel.
-      </p>
+    <main className="min-h-dvh bg-background px-6 py-16">
+      <div className="mx-auto max-w-xl rounded-3xl bg-card p-8 ring-1 ring-stroke shadow-[0_20px_50px_var(--shadow)]">
+        <p className="text-xs uppercase tracking-[0.25em] text-ink-soft">Offline</p>
+        <h1 className="mt-3 text-2xl font-semibold text-foreground font-[family:var(--font-display)]">
+          You are offline
+        </h1>
+        <p className="mt-3 text-sm text-ink-muted">
+          Cocoon needs a connection to sync new entries. We will reload automatically when you are back online.
+        </p>
+      </div>
     </main>
   );
 }

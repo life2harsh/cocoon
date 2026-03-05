@@ -8,7 +8,13 @@ export function bufToBase64(buf: ArrayBuffer): string {
 }
 
 export function base64ToBuf(b64: string): ArrayBuffer {
+  if (b64.length > 5_000_000) {
+    throw new Error("base64_payload_too_large");
+  }
   const binary = atob(b64);
+  if (binary.length > 10_000_000) {
+    throw new Error("decoded_payload_too_large");
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);

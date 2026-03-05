@@ -16,12 +16,36 @@ export function DailyPromptCard({ journalId }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [existingReply, setExistingReply] = useState<{ body: string; created_at: string; author: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const canReply = Boolean(question && questionId && !existingReply);
 
   useEffect(() => {
-    fetch(`/api/prompts/daily?journal_id=${journalId}`)
-      .then((res) => res.json())
+    const fetchDaily = async () => {
+      const url = new URL("/api/prompts/daily", window.location.origin);
+      url.searchParams.set("journal_id", journalId);
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      if (!res.ok && res.status === 400) {
+        const pathRes = await fetch(`/api/prompts/daily/by-id/${journalId}`, { cache: "no-store" });
+        if (pathRes.ok) {
+          return pathRes.json();
+        }
+        const retry = await fetch(url.toString(), {
+          cache: "no-store",
+          headers: { "x-journal-id": journalId },
+        });
+        if (!retry.ok) {
+          throw new Error("daily_prompt_failed");
+        }
+        return retry.json();
+      }
+      if (!res.ok) {
+        throw new Error("daily_prompt_failed");
+      }
+      return res.json();
+    };
+
+    fetchDaily()
       .then((data) => {
         if (data.question) {
           setQuestion(data.question);
@@ -78,7 +102,7 @@ export function DailyPromptCard({ journalId }: Props) {
   async function handleSubmitReply() {
     if (!replyText.trim() || submitting) return;
     if (!questionId) {
-      alert("Prompt unavailable. Refresh to try again.");
+      setNotice("Prompt unavailable. Refresh to try again.");
       return;
     }
     setSubmitting(true);
@@ -97,7 +121,7 @@ export function DailyPromptCard({ journalId }: Props) {
       if (!res.ok) {
         const err = await res.json();
         console.error("Failed to submit reply:", err);
-        alert("Failed to save reply. Please try again.");
+        setNotice("Failed to save reply. Please try again.");
         return;
       }
       setExistingReply({
@@ -109,7 +133,7 @@ export function DailyPromptCard({ journalId }: Props) {
       setReplying(false);
     } catch (err) {
       console.error("Error submitting reply:", err);
-      alert("Failed to save reply. Please try again.");
+      setNotice("Failed to save reply. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -181,6 +205,11 @@ export function DailyPromptCard({ journalId }: Props) {
         </p>
       ) : (
         <p className="text-sm text-ink-soft">Question hidden</p>
+      )}
+      {notice && (
+        <div className="mt-3 rounded-xl bg-ink/10 px-4 py-3 text-xs text-ink-soft">
+          {notice}
+        </div>
       )}
 
       {existingReply ? (

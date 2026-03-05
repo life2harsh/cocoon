@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, JetBrains_Mono, Nunito } from "next/font/google";
 import "./globals.css";
+import { ServiceWorkerDevGuard } from "@/components/ServiceWorkerDevGuard";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -70,6 +71,7 @@ export default function RootLayout({
       <body
         className={`${nunito.variable} ${fraunces.variable} ${jetBrainsMono.variable} antialiased`}
       >
+        <ServiceWorkerDevGuard />
         {children}
       </body>
     </html>

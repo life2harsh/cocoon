@@ -69,5 +69,6 @@ next-env.d.ts
 /public/sw*
 /public/swe-worker*
 
+
 # supabase test schemas
 supabase/

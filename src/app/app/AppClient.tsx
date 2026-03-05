@@ -33,6 +33,12 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -118,6 +124,10 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
   }
 
   async function handleCreateInvite(journalId: string) {
+    setShareStatus("loading");
+    setShowShareModal(true);
+    setShareUrl(null);
+    setShareCode(null);
     const code = generateInviteCode();
     const res = await fetch("/api/invites", {
       method: "POST",
@@ -125,10 +135,14 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
       body: JSON.stringify({ journalId, code }),
     });
     const payload = (await res.json()) as { code?: string };
-    if (!res.ok || !payload.code) return;
+    if (!res.ok || !payload.code) {
+      setShareStatus("error");
+      return;
+    }
     const url = `${window.location.origin}/app/invite/${payload.code}`;
-    await navigator.clipboard?.writeText(url).catch(() => {});
-    alert(`Invite link copied:\n${url}\n\nInvite code: ${payload.code}`);
+    setShareUrl(url);
+    setShareCode(payload.code);
+    setShareStatus("ready");
   }
 
   async function handleRenameNotebook(journalId: string) {
@@ -162,11 +176,11 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
   }
 
   async function handleDeleteNotebook(journalId: string) {
-    const confirmed = window.confirm(
-      "Delete this notebook and all entries? This cannot be undone."
-    );
-    if (!confirmed) return;
+    if (confirmingDelete) return;
+    setConfirmingDelete(true);
     await fetch(`/api/journals/${journalId}`, { method: "DELETE" });
+    setConfirmingDelete(false);
+    setConfirmDeleteId(null);
     window.location.reload();
   }
 
@@ -177,6 +191,106 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
           onSelect={handleCreateWithTemplate}
           onClose={() => setShowTemplatePicker(false)}
         />
+      )}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setShowShareModal(false)} />
+          <div className="relative w-full max-w-md bg-card-strong rounded-3xl ring-1 ring-stroke shadow-2xl animate-rise overflow-hidden">
+            <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-foreground font-[family:var(--font-display)]">
+                Share notebook
+              </h2>
+              <button onClick={() => setShowShareModal(false)} className="p-2 -m-2 rounded-full hover:bg-ink/20 transition-colors">
+                <svg className="w-5 h-5 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 pb-6 space-y-4">
+              {shareStatus === "loading" && (
+                <p className="text-sm text-ink-soft">Creating a share link...</p>
+              )}
+              {shareStatus === "error" && (
+                <p className="text-sm text-ink-soft">Could not create a share link. Try again.</p>
+              )}
+              {shareStatus === "ready" && shareUrl && shareCode && (
+                <>
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.2em] text-ink-soft">Invite link</label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={shareUrl}
+                        className="w-full h-11 rounded-full bg-input px-4 text-sm text-foreground ring-1 ring-input-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(shareUrl).catch(() => {})}
+                        className="h-11 px-4 rounded-full bg-card text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:bg-card-strong"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.2em] text-ink-soft">Invite code</label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={shareCode}
+                        className="w-full h-11 rounded-full bg-input px-4 text-sm text-foreground ring-1 ring-input-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(shareCode).catch(() => {})}
+                        className="h-11 px-4 rounded-full bg-card text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:bg-card-strong"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setConfirmDeleteId(null)} />
+          <div className="relative w-full max-w-md bg-card-strong rounded-3xl ring-1 ring-stroke shadow-2xl animate-rise overflow-hidden">
+            <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-foreground font-[family:var(--font-display)]">
+                Delete notebook
+              </h2>
+              <button onClick={() => setConfirmDeleteId(null)} className="p-2 -m-2 rounded-full hover:bg-ink/20 transition-colors">
+                <svg className="w-5 h-5 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 pb-6 space-y-4">
+              <p className="text-sm text-ink-soft">Delete this notebook and all entries? This cannot be undone.</p>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="h-10 px-4 rounded-full bg-card text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:bg-card-strong"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteNotebook(confirmDeleteId)}
+                  disabled={confirmingDelete}
+                  className="h-10 px-4 rounded-full bg-accent text-xs font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-accent-strong disabled:opacity-50"
+                >
+                  {confirmingDelete ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <StreakBadge />
@@ -299,8 +413,8 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
                         {journal.owner_id === userId && (
                           <>
                           <button
-                            onClick={() => { setOpenMenuId(null); handleCreateInvite(journal.id); }}
-                            className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
+                              onClick={() => { setOpenMenuId(null); handleCreateInvite(journal.id); }}
+                              className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
                           >
                             <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -326,7 +440,7 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
                               Archive
                             </button>
                             <button
-                              onClick={() => { setOpenMenuId(null); handleDeleteNotebook(journal.id); }}
+                              onClick={() => { setOpenMenuId(null); setConfirmDeleteId(journal.id); }}
                               className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
                             >
                               <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
