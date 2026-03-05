@@ -22,23 +22,10 @@ export function DailyPromptCard({ journalId }: Props) {
 
   useEffect(() => {
     const fetchDaily = async () => {
-      const pathRes = await fetch(`/api/prompts/daily/by-id/${journalId}`, { cache: "no-store" });
-      if (pathRes.ok) {
-        return pathRes.json();
-      }
       const url = new URL("/api/prompts/daily", window.location.origin);
       url.searchParams.set("journal_id", journalId);
       const res = await fetch(url.toString(), { cache: "no-store" });
-      if (!res.ok) {
-        const retry = await fetch(url.toString(), {
-          cache: "no-store",
-          headers: { "x-journal-id": journalId },
-        });
-        if (!retry.ok) {
-          throw new Error("daily_prompt_failed");
-        }
-        return retry.json();
-      }
+      if (!res.ok) throw new Error("daily_prompt_failed");
       return res.json();
     };
 
