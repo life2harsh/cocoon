@@ -3,6 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { encryptEntry, decryptEntry } from "@/lib/e2e";
 
+interface Reply {
+  id: string;
+  body: string;
+  encrypted_body?: string;
+  nonce?: string;
+  created_at: string;
+  author: string;
+  is_self: boolean;
+}
+
 interface Props {
   journalId: string;
 }
@@ -15,10 +25,12 @@ export function DailyPromptCard({ journalId }: Props) {
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [existingReply, setExistingReply] = useState<{ body: string; created_at: string; author: string } | null>(null);
+  const [replies, setReplies] = useState<Reply[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const canReply = Boolean(question && questionId && !existingReply);
+  const myReply = replies.find((r) => r.is_self);
+  const otherReplies = replies.filter((r) => !r.is_self);
+  const canReply = Boolean(question && questionId && !myReply);
 
   useEffect(() => {
     const fetchDaily = async () => {
@@ -31,46 +43,34 @@ export function DailyPromptCard({ journalId }: Props) {
 
     fetchDaily()
       .then((data) => {
-        if (data.question) {
-          setQuestion(data.question);
-          setQuestionId(data.id || null);
-        } else {
-          setQuestion(null);
-          setQuestionId(data.id || null);
-        }
+        setQuestion(data.question || null);
+        setQuestionId(data.id || null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [journalId]);
 
   useEffect(() => {
-    if (questionId) {
-      const parts = questionId.split(":");
-      const promptId = parts.length > 1 ? parts[0] : questionId;
-      fetch(`/api/prompts/daily/reply?prompt_id=${promptId}`)
-        .then((res) => res.json())
-        .then(async (data) => {
-          if (data.encrypted_body && data.nonce) {
-            const decrypted = await decryptEntry(journalId, data.encrypted_body, data.nonce);
+    if (!questionId) return;
+    const promptId = questionId.split(":")[0];
+    fetch(`/api/prompts/daily/reply?prompt_id=${promptId}`)
+      .then((res) => res.json())
+      .then(async (data) => {
+        if (!data.replies?.length) return;
+        const decoded: Reply[] = [];
+        for (const r of data.replies) {
+          if (r.encrypted_body && r.nonce) {
+            const decrypted = await decryptEntry(journalId, r.encrypted_body, r.nonce);
             if (decrypted) {
-              setExistingReply({
-                body: decrypted,
-                created_at: data.created_at,
-                author: data.author || "You",
-              });
-              return;
+              decoded.push({ ...r, body: decrypted });
+              continue;
             }
           }
-          if (data.body) {
-            setExistingReply({
-              body: data.body,
-              created_at: data.created_at,
-              author: data.author || "You",
-            });
-          }
-        })
-        .catch(() => {});
-    }
+          if (r.body) decoded.push(r);
+        }
+        setReplies(decoded);
+      })
+      .catch(() => {});
   }, [questionId, journalId]);
 
   useEffect(() => {
@@ -97,26 +97,28 @@ export function DailyPromptCard({ journalId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           body: replyText.trim(),
-          prompt_id: questionId?.split(":")[0] || null,
+          prompt_id: questionId.split(":")[0] || null,
           encrypted_body: encrypted?.cipher || null,
           nonce: encrypted?.iv || null,
         }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        console.error("Failed to submit reply:", err);
         setNotice("Failed to save reply. Please try again.");
         return;
       }
-      setExistingReply({
-        body: replyText.trim(),
-        created_at: new Date().toISOString(),
-        author: "You",
-      });
+      setReplies((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          body: replyText.trim(),
+          created_at: new Date().toISOString(),
+          author: "You",
+          is_self: true,
+        },
+      ]);
       setReplyText("");
       setReplying(false);
-    } catch (err) {
-      console.error("Error submitting reply:", err);
+    } catch {
       setNotice("Failed to save reply. Please try again.");
     } finally {
       setSubmitting(false);
@@ -135,7 +137,7 @@ export function DailyPromptCard({ journalId }: Props) {
     );
   }
 
-  if (!question && !existingReply) return null;
+  if (!question && replies.length === 0) return null;
 
   return (
     <div className="rounded-2xl bg-gradient-to-br from-card to-accent/5 p-5 ring-1 ring-stroke/50 shadow-lg">
@@ -183,6 +185,7 @@ export function DailyPromptCard({ journalId }: Props) {
           )}
         </div>
       </div>
+
       {question ? (
         <p className="text-lg font-medium text-foreground leading-relaxed">
           {question}
@@ -190,23 +193,39 @@ export function DailyPromptCard({ journalId }: Props) {
       ) : (
         <p className="text-sm text-ink-soft">Question hidden</p>
       )}
+
       {notice && (
         <div className="mt-3 rounded-xl bg-ink/10 px-4 py-3 text-xs text-ink-soft">
           {notice}
         </div>
       )}
 
-      {existingReply ? (
-        <div className="mt-4 pt-4 border-t border-stroke/50">
-          <p className="text-xs text-ink-soft mb-2">Your reply:</p>
-          <div className="rounded-xl bg-accent/10 p-4">
-            <p className="text-sm text-foreground whitespace-pre-wrap">{existingReply.body}</p>
-            <p className="text-xs text-ink-soft mt-2">
-              {new Date(existingReply.created_at).toLocaleDateString()}
-            </p>
-          </div>
+      {replies.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-stroke/50 space-y-3">
+          {replies.map((reply) => (
+            <div key={reply.id}>
+              <p className="text-xs text-ink-soft mb-1.5">{reply.author}:</p>
+              <div className={`rounded-xl p-4 ${reply.is_self ? "bg-accent/10" : "bg-ink/5"}`}>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{reply.body}</p>
+                <p className="text-xs text-ink-soft mt-2">
+                  {new Date(reply.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
-      ) : replying ? (
+      )}
+
+      {canReply && !replying && replies.length === 0 && (
+        <button
+          onClick={() => setReplying(true)}
+          className="mt-4 w-full rounded-xl border border-dashed border-stroke/50 py-3 text-xs text-ink-soft hover:border-accent/40 hover:text-accent transition-colors"
+        >
+          Write your reply...
+        </button>
+      )}
+
+      {replying && (
         <div className="mt-4">
           <textarea
             value={replyText}
@@ -231,7 +250,7 @@ export function DailyPromptCard({ journalId }: Props) {
             </button>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

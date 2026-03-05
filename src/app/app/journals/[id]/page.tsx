@@ -59,9 +59,7 @@ export default async function JournalPage({ params }: { params: Params }) {
     .eq("journal_id", id)
     .order("created_at", { ascending: false });
 
-  const visibleEntries = (entries ?? []).filter(
-    (entry) => !entry.prompt_id || entry.author_id !== user.id
-  );
+  const visibleEntries = (entries ?? []).filter((entry) => !entry.prompt_id);
   const authorIds = [
     ...new Set(visibleEntries.map((e) => e.author_id).filter(Boolean) || []),
   ];
