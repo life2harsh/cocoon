@@ -8,34 +8,46 @@ type InvitePageProps = {
 
 export default async function InvitePage({ params }: InvitePageProps) {
   const { code } = await params;
-  let journalId: string | null = null;
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(`/login?next=/app/invite/${code}`);
 
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) redirect(`/login?next=/app/invite/${code}`);
+  const { data: invite } = await supabase
+    .from("journal_invites")
+    .select("id, journal_id, expires_at, used_at")
+    .eq("code", code)
+    .maybeSingle();
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/invites/accept`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-      cache: "no-store",
-    });
-    const payload = (await res.json()) as { journalId?: string; message?: string };
-    if (!res.ok || !payload.journalId) {
-      const message = payload.message ?? "";
-      if (message.includes("invite_expired")) redirect("/app?invite=expired");
-      if (message.includes("invite_used")) redirect("/app?invite=used");
-      redirect("/app?invite=invalid");
-    }
-    journalId = payload.journalId;
-  } catch {
-    redirect("/app?invite=invalid");
+  if (!invite) redirect("/app?invite=invalid");
+  if (invite.used_at) redirect("/app?invite=used");
+  if (invite.expires_at && new Date(invite.expires_at) < new Date())
+    redirect("/app?invite=expired");
+
+  const { data: existing } = await supabase
+    .from("journal_members")
+    .select("journal_id")
+    .eq("journal_id", invite.journal_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!existing) {
+    const { error: memberError } = await supabase
+      .from("journal_members")
+      .insert({
+        journal_id: invite.journal_id,
+        user_id: user.id,
+        role: "member",
+      });
+
+    if (memberError) redirect("/app?invite=invalid");
+
+    await supabase
+      .from("journal_invites")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", invite.id);
   }
 
-  if (journalId) redirect(`/app/journals/${journalId}`);
-  redirect("/app?invite=invalid");
+  redirect(`/app/journals/${invite.journal_id}`);
 }
