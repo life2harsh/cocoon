@@ -19,11 +19,25 @@ export async function GET() {
       return Response.json({ error: error.message }, { status: 500 });
     }
 
-    return Response.json(streak || {
-      current_streak: 0,
-      longest_streak: 0,
-      last_entry_date: null,
-      total_entries: 0,
+    const { data: entries } = await supabase
+      .from("entries")
+      .select("created_at")
+      .eq("author_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(90);
+
+    const entryDates = [...new Set(
+      entries?.map((e) => new Date(e.created_at).toISOString().split("T")[0]) || []
+    )].sort().reverse();
+
+    return Response.json({
+      ...(streak || {
+        current_streak: 0,
+        longest_streak: 0,
+        last_entry_date: null,
+        total_entries: 0,
+      }),
+      entry_dates: entryDates,
     });
   } catch (e) {
     return Response.json(

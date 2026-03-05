@@ -9,9 +9,28 @@ export async function GET(request: Request, { params }: Params) {
   const { id } = await params;
   try {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
+    }
+
+    const { data: membership } = await supabase
+      .from("journal_members")
+      .select("user_id")
+      .eq("journal_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ error: "access_denied" }, { status: 403 });
+    }
+
+    const { data: entries, error } = await supabase
       .from("entries")
-      .select("id, body, created_at, edited_at, author_id")
+      .select("id, body, encrypted_body, nonce, created_at, edited_at, author_id, prompt_id")
       .eq("journal_id", id)
       .order("created_at", { ascending: false });
 
@@ -19,7 +38,24 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    const authorIds = [...new Set(entries?.map((e) => e.author_id).filter(Boolean) || [])];
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("id, display_name, username")
+      .in("id", authorIds);
+
+    const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+
+    const entriesWithAuthors = entries?.map((entry) => ({
+      ...entry,
+      author: entry.author_id === user.id
+        ? { id: user.id, display_name: "You", is_self: true }
+        : profileMap.get(entry.author_id)
+          ? { ...profileMap.get(entry.author_id), is_self: false }
+          : { id: entry.author_id, display_name: "Unknown", is_self: false },
+    })) || [];
+
+    return NextResponse.json(entriesWithAuthors);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "unknown_error" },
@@ -38,13 +74,34 @@ export async function POST(request: Request, { params }: Params) {
     if (!user) {
       return NextResponse.json({ message: "missing_session" }, { status: 401 });
     }
-    const body = (await request.json()) as { body?: string };
-    if (!body.body || !body.body.trim()) {
+
+    const { data: membership } = await supabase
+      .from("journal_members")
+      .select("user_id")
+      .eq("journal_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ error: "access_denied" }, { status: 403 });
+    }
+
+    const body = (await request.json()) as { body?: string; prompt_id?: string; encrypted_body?: string; nonce?: string };
+    const trimmedBody = body.body?.trim() || "";
+    if (!trimmedBody && !body.encrypted_body) {
       return NextResponse.json({ message: "invalid_payload" }, { status: 400 });
     }
+
     const { data, error } = await supabase
       .from("entries")
-      .insert({ journal_id: id, author_id: user.id, body: body.body.trim() })
+      .insert({
+        journal_id: id,
+        author_id: user.id,
+        body: trimmedBody,
+        encrypted_body: body.encrypted_body || null,
+        nonce: body.nonce || null,
+        prompt_id: body.prompt_id || null,
+      })
       .select("id, created_at")
       .single();
     if (error || !data) {

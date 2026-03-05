@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { JournalTemplatePicker } from "@/components/JournalTemplatePicker";
 import { StreakBadge } from "@/components/StreakBadge";
-import { DailyPromptCard } from "@/components/DailyPromptCard";
 
 type JournalSummary = {
   id: string;
   name: string;
+  description?: string | null;
   owner_id: string;
   archived_at: string | null;
   created_at: string;
@@ -32,6 +32,18 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const hasList = journals.length > 0;
 
@@ -178,11 +190,6 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
           </svg>
         </Link>
       </div>
-      {journals.length > 0 && (
-        <div className="mb-6">
-          <DailyPromptCard journalId={journals[0].id} />
-        </div>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-6 rounded-3xl bg-card p-6 ring-1 ring-stroke shadow-[0_20px_50px_var(--shadow)]">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-ink-soft">
@@ -254,53 +261,84 @@ export default function AppClient({ journals, archivedJournals, hasJournals, use
           {journals.map((journal) => (
             <article
               key={journal.id}
-              className="rounded-3xl bg-card p-6 ring-1 ring-stroke shadow-[0_20px_50px_var(--shadow)] transition hover:-translate-y-0.5"
+              className="rounded-3xl bg-card p-6 ring-1 ring-stroke shadow-[0_20px_50px_var(--shadow)] transition hover:-translate-y-0.5 cursor-pointer"
+              onClick={() => window.location.assign(`/app/journals/${journal.id}`)}
             >
-              <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                Notebook
-              </p>
-              <h2 className="mt-3 text-xl font-semibold text-foreground">
-                {journal.name}
-              </h2>
-              <p className="mt-2 text-sm text-ink-muted">
-                Your shared space for reflection.
-              </p>
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => window.location.assign(`/app/journals/${journal.id}`)}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-accent px-4 text-xs font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition hover:-translate-y-0.5 hover:bg-accent-strong"
-                >
-                  Open
-                </button>
-                {journal.owner_id === userId ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleCreateInvite(journal.id)}
-                      className="inline-flex h-10 items-center justify-center rounded-full bg-card px-4 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
-                    >
-                      Share link
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRenamingId(journal.id);
-                        setRenameValue(journal.name);
-                      }}
-                      className="inline-flex h-10 items-center justify-center rounded-full bg-card px-4 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleArchiveNotebook(journal.id)}
-                      className="inline-flex h-10 items-center justify-center rounded-full bg-card px-4 text-xs font-semibold text-foreground ring-1 ring-stroke transition hover:-translate-y-0.5 hover:bg-card-strong"
-                    >
-                      Archive
-                    </button>
-                  </>
-                ) : null}
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
+                    Notebook
+                  </p>
+                  <h2 className="mt-3 text-xl font-semibold text-foreground">
+                    {journal.name}
+                  </h2>
+                  <p className="mt-2 text-sm text-ink-muted">
+                    {journal.description || "Tap to write"}
+                  </p>
+                </div>
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setOpenMenuId(openMenuId === journal.id ? null : journal.id)}
+                    className="p-2 rounded-full hover:bg-ink/10 transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-ink-soft" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                  </button>
+                  {openMenuId === journal.id && (
+                    <div className="absolute right-0 mt-1 w-40 rounded-xl bg-card-strong ring-1 ring-stroke shadow-lg overflow-hidden z-10">
+                      <button
+                        onClick={() => { setOpenMenuId(null); window.location.assign(`/app/journals/${journal.id}`); }}
+                        className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        Open
+                      </button>
+                        {journal.owner_id === userId && (
+                          <>
+                          <button
+                            onClick={() => { setOpenMenuId(null); handleCreateInvite(journal.id); }}
+                            className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                          </button>
+                          <button
+                            onClick={() => { setOpenMenuId(null); setRenamingId(journal.id); setRenameValue(journal.name); }}
+                            className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Rename
+                          </button>
+                            <button
+                              onClick={() => { setOpenMenuId(null); handleArchiveNotebook(journal.id); }}
+                              className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                              </svg>
+                              Archive
+                            </button>
+                            <button
+                              onClick={() => { setOpenMenuId(null); handleDeleteNotebook(journal.id); }}
+                              className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-ink/10 transition-colors flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4 text-ink-soft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3h6m-7 4h8m-9 0h10l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7" />
+                              </svg>
+                              Delete
+                            </button>
+                          </>
+                        )}
+                    </div>
+                  )}
+                </div>
               </div>
               {renamingId === journal.id ? (
                 <div className="mt-4 flex flex-wrap items-center gap-2">

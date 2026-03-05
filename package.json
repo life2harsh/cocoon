@@ -6,7 +6,8 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "load:test": "k6 run load-tests/k6-journal.js"
   },
   "dependencies": {
     "@serwist/next": "^9.5.6",

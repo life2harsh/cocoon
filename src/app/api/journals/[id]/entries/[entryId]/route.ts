@@ -15,13 +15,19 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!user) {
       return NextResponse.json({ message: "missing_session" }, { status: 401 });
     }
-    const body = (await request.json()) as { body?: string };
-    if (!body.body || !body.body.trim()) {
+    const body = (await request.json()) as { body?: string; encrypted_body?: string; nonce?: string };
+    const trimmedBody = body.body?.trim() || "";
+    if (!trimmedBody && !body.encrypted_body) {
       return NextResponse.json({ message: "invalid_payload" }, { status: 400 });
     }
     const { error } = await supabase
       .from("entries")
-      .update({ body: body.body.trim(), edited_at: new Date().toISOString() })
+      .update({ 
+        body: trimmedBody,
+        encrypted_body: body.encrypted_body || null,
+        nonce: body.nonce || null,
+        edited_at: new Date().toISOString(),
+      })
       .eq("id", entryId)
       .eq("journal_id", id)
       .eq("author_id", user.id);
