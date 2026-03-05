@@ -1,10 +1,10 @@
 import { handleDailyPrompt } from "../handler";
+import type { NextRequest } from "next/server";
 
-type Params = Promise<{ id: string }>;
+type Params = { id: string };
 
-export async function GET(request: Request, { params }: { params: Params }) {
-  const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const debug = searchParams.get("debug") === "1";
+export async function GET(request: NextRequest, context: { params: Params }) {
+  const { id } = context.params;
+  const debug = request.nextUrl.searchParams.get("debug") === "1";
   return handleDailyPrompt(id, debug);
 }
