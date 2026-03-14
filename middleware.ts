@@ -1,19 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/proxy";
 
 export async function middleware(request: NextRequest) {
-  const res = await updateSession(request);
   const pathname = request.nextUrl.pathname;
-  const isAppRoute = pathname === "/app" || pathname.startsWith("/app/");
+  const token = request.cookies.get("token")?.value;
 
-  if (!isAppRoute) return res;
+  if (pathname === "/login" || pathname.startsWith("/auth/")) {
+    if (token) {
+      return NextResponse.redirect(new URL("/app", request.url));
+    }
+    return NextResponse.next();
+  }
 
-  const hasSession = request.cookies.getAll().some((c) => c.name.startsWith("sb-"));
-  if (hasSession) return res;
+  if (pathname === "/app" || pathname.startsWith("/app/")) {
+    if (!token && !pathname.startsWith("/app/invite/")) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
 
-  const login = new URL("/login", request.url);
-  login.searchParams.set("next", pathname);
-  return NextResponse.redirect(login);
+  return NextResponse.next();
 }
 
 export const config = {
