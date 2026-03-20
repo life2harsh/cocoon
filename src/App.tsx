@@ -1,6 +1,4 @@
-import Link from "next/link";
-
-export default function Home() {
+export default function App() {
   return (
     <div className="relative min-h-dvh overflow-hidden cocoon-shell">
       <div className="pointer-events-none absolute -top-32 left-10 h-72 w-72 rounded-full cocoon-glow-warm blur-3xl animate-glow motion-reduce:animate-none" />
@@ -17,12 +15,12 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link
+            <a
               href="/login"
               className="inline-flex items-center justify-center rounded-full bg-ink px-4 py-2 text-sm font-medium text-white shadow-[0_8px_24px_var(--shadow)] ring-1 ring-white/20 transition duration-200 hover:-translate-y-0.5 hover:bg-ink-hover"
             >
               Sign in
-            </Link>
+            </a>
           </div>
         </header>
 
@@ -36,22 +34,23 @@ export default function Home() {
               A calm place for thoughts, together or alone.
             </h1>
             <p className="mt-5 max-w-xl text-balance text-lg leading-8 text-ink-muted">
-              A shared space for reflection, venting, and the moments that linger.
-              Write solo, or invite others into the same notebook when it helps.
+              A shared space for reflection, venting, and the moments that
+              linger. Write solo, or invite others into the same notebook when
+              it helps.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
+              <a
                 href="/login"
                 className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-6 text-sm font-semibold text-white shadow-[0_10px_30px_var(--shadow)] ring-1 ring-white/40 transition duration-200 hover:-translate-y-0.5 hover:bg-accent-strong"
               >
                 Continue with Google
-              </Link>
-              <Link
+              </a>
+              <a
                 href="/about"
                 className="inline-flex h-12 items-center justify-center rounded-full bg-card px-6 text-sm font-medium text-foreground ring-1 ring-stroke transition duration-200 hover:-translate-y-0.5 hover:bg-card-strong"
               >
                 How it works
-              </Link>
+              </a>
             </div>
           </div>
 
@@ -62,8 +61,8 @@ export default function Home() {
                   Today
                 </p>
                 <p className="mt-2 text-lg leading-7">
-                  A private page for what you are carrying. A place to soften the
-                  day.
+                  A private page for what you are carrying. A place to soften
+                  the day.
                 </p>
               </div>
               <div className="mt-4 grid gap-3">
@@ -76,13 +75,17 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="rounded-2xl bg-card-strong p-4 ring-1 ring-stroke">
-                  <p className="text-sm font-medium text-foreground">Gentle cues</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Gentle cues
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-ink-muted">
                     Daily reminders only when you ask for them.
                   </p>
                 </div>
                 <div className="rounded-2xl bg-card-strong p-4 ring-1 ring-stroke">
-                  <p className="text-sm font-medium text-foreground">Quiet by design</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Quiet by design
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-ink-muted">
                     Focused writing spaces, no task lists.
                   </p>

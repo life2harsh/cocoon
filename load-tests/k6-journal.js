@@ -14,7 +14,7 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
+const BASE_URL = __ENV.BASE_URL || "http://localhost:8000";
 const AUTH_COOKIE = __ENV.AUTH_COOKIE || "";
 
 function authHeaders() {

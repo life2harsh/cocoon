@@ -17,7 +17,7 @@ load_dotenv()
 
 app = FastAPI(title="Cocoon Journal API")
 
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:8000")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,7 +38,7 @@ def get_google_client_secret():
     return os.environ.get("GOOGLE_CLIENT_SECRET", "")
 
 def get_google_redirect_uri():
-    return os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:3000/auth/callback")
+    return os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/callback")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 

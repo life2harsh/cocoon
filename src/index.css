@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Nunito:wght@400;500;600;700&display=swap");
 
 :root {
   color-scheme: dark;
@@ -33,6 +34,9 @@
   --hero-base-end: #232d31;
   --glow-warm: rgba(74, 138, 152, 0.35);
   --glow-sage: rgba(106, 138, 118, 0.2);
+  --font-nunito: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-fraunces: "Fraunces", "Times New Roman", serif;
+  --font-jetbrains-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 [data-theme="light"] {
