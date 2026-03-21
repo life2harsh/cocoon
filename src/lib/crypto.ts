@@ -1,29 +1,85 @@
-export function bufToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+import { api, type User } from "@/lib/api";
+
+const PRIVATE_KEY_PREFIX = "cocoon-private-key:";
+const PUBLIC_KEY_PREFIX = "cocoon-public-key:";
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+function privateStorageKey(userId: string) {
+  return `${PRIVATE_KEY_PREFIX}${userId}`;
 }
 
-export function base64ToBuf(b64: string): ArrayBuffer {
-  if (b64.length > 5_000_000) {
-    throw new Error("base64_payload_too_large");
+function publicStorageKey(userId: string) {
+  return `${PUBLIC_KEY_PREFIX}${userId}`;
+}
+
+function assertBrowserCrypto() {
+  if (typeof window === "undefined" || !window.crypto?.subtle) {
+    throw new Error("Web Crypto is not available in this browser.");
   }
-  const binary = atob(b64);
-  if (binary.length > 10_000_000) {
-    throw new Error("decoded_payload_too_large");
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
   }
+  return window.btoa(binary);
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = window.atob(base64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
   return bytes.buffer;
 }
 
-export async function generateUserKeyPair() {
-  return crypto.subtle.generateKey(
+function getStoredKeyPair(userId: string) {
+  if (typeof window === "undefined") return null;
+  const privateKey = window.localStorage.getItem(privateStorageKey(userId));
+  const publicKey = window.localStorage.getItem(publicStorageKey(userId));
+  if (!privateKey || !publicKey) return null;
+  return { privateKey, publicKey };
+}
+
+function storeKeyPair(userId: string, pair: { privateKey: string; publicKey: string }) {
+  window.localStorage.setItem(privateStorageKey(userId), pair.privateKey);
+  window.localStorage.setItem(publicStorageKey(userId), pair.publicKey);
+}
+
+export function hasLocalPrivateKey(userId: string): boolean {
+  return Boolean(getStoredKeyPair(userId)?.privateKey);
+}
+
+async function importPublicKey(publicKeyBase64: string): Promise<CryptoKey> {
+  assertBrowserCrypto();
+  return window.crypto.subtle.importKey(
+    "spki",
+    base64ToArrayBuffer(publicKeyBase64),
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    true,
+    ["wrapKey"],
+  );
+}
+
+async function importPrivateKey(privateKeyBase64: string): Promise<CryptoKey> {
+  assertBrowserCrypto();
+  return window.crypto.subtle.importKey(
+    "pkcs8",
+    base64ToArrayBuffer(privateKeyBase64),
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    true,
+    ["unwrapKey"],
+  );
+}
+
+async function generateStoredKeyPair(userId: string) {
+  assertBrowserCrypto();
+  const pair = await window.crypto.subtle.generateKey(
     {
       name: "RSA-OAEP",
       modulusLength: 2048,
@@ -31,78 +87,144 @@ export async function generateUserKeyPair() {
       hash: "SHA-256",
     },
     true,
-    ["encrypt", "decrypt"]
+    ["wrapKey", "unwrapKey"],
   );
+
+  const [publicKeyBuffer, privateKeyBuffer] = await Promise.all([
+    window.crypto.subtle.exportKey("spki", pair.publicKey),
+    window.crypto.subtle.exportKey("pkcs8", pair.privateKey),
+  ]);
+
+  const stored = {
+    publicKey: arrayBufferToBase64(publicKeyBuffer),
+    privateKey: arrayBufferToBase64(privateKeyBuffer),
+  };
+  storeKeyPair(userId, stored);
+  return stored;
 }
 
-export async function exportKeyJwk(key: CryptoKey) {
-  return crypto.subtle.exportKey("jwk", key);
+export async function getKeyFingerprint(publicKeyBase64: string | null | undefined): Promise<string | null> {
+  if (!publicKeyBase64) return null;
+  assertBrowserCrypto();
+  const digest = await window.crypto.subtle.digest("SHA-256", base64ToArrayBuffer(publicKeyBase64));
+  return Array.from(new Uint8Array(digest))
+    .slice(0, 6)
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join(":");
 }
 
-export async function importPublicKey(jwk: JsonWebKey) {
-  return crypto.subtle.importKey(
-    "jwk",
-    jwk,
-    { name: "RSA-OAEP", hash: "SHA-256" },
-    true,
-    ["encrypt"]
-  );
+export async function ensureUserEncryption(user: User): Promise<{
+  publicKey: string | null;
+  fingerprint: string | null;
+  needsRecovery: boolean;
+  created: boolean;
+}> {
+  assertBrowserCrypto();
+  const local = getStoredKeyPair(user.id);
+
+  if (local) {
+    if (user.public_key && user.public_key !== local.publicKey) {
+      return {
+        publicKey: user.public_key,
+        fingerprint: await getKeyFingerprint(user.public_key),
+        needsRecovery: true,
+        created: false,
+      };
+    }
+
+    if (!user.public_key) {
+      await api.profile.update({ public_key: local.publicKey });
+    }
+
+    return {
+      publicKey: local.publicKey,
+      fingerprint: await getKeyFingerprint(local.publicKey),
+      needsRecovery: false,
+      created: false,
+    };
+  }
+
+  if (user.public_key) {
+    return {
+      publicKey: user.public_key,
+      fingerprint: await getKeyFingerprint(user.public_key),
+      needsRecovery: true,
+      created: false,
+    };
+  }
+
+  const createdPair = await generateStoredKeyPair(user.id);
+  await api.profile.update({ public_key: createdPair.publicKey });
+  return {
+    publicKey: createdPair.publicKey,
+    fingerprint: await getKeyFingerprint(createdPair.publicKey),
+    needsRecovery: false,
+    created: true,
+  };
 }
 
-export async function importPrivateKey(jwk: JsonWebKey) {
-  return crypto.subtle.importKey(
-    "jwk",
-    jwk,
-    { name: "RSA-OAEP", hash: "SHA-256" },
-    true,
-    ["decrypt"]
-  );
-}
-
-export async function generateJournalKey() {
-  return crypto.subtle.generateKey(
+export async function generateJournalKey(): Promise<CryptoKey> {
+  assertBrowserCrypto();
+  return window.crypto.subtle.generateKey(
     { name: "AES-GCM", length: 256 },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
   );
 }
 
-export async function exportJournalKeyRaw(key: CryptoKey) {
-  return crypto.subtle.exportKey("raw", key);
+export async function wrapJournalKeyForUser(journalKey: CryptoKey, publicKeyBase64: string): Promise<string> {
+  const publicKey = await importPublicKey(publicKeyBase64);
+  const wrappedKey = await window.crypto.subtle.wrapKey("raw", journalKey, publicKey, {
+    name: "RSA-OAEP",
+  });
+  return arrayBufferToBase64(wrappedKey);
 }
 
-export async function importJournalKey(raw: ArrayBuffer) {
-  return crypto.subtle.importKey(
+export async function unwrapJournalKeyForUser(userId: string, encryptedKey: string): Promise<CryptoKey> {
+  const stored = getStoredKeyPair(userId);
+  if (!stored?.privateKey) {
+    throw new Error("This browser does not have your private journal key.");
+  }
+
+  const privateKey = await importPrivateKey(stored.privateKey);
+  return window.crypto.subtle.unwrapKey(
     "raw",
-    raw,
-    { name: "AES-GCM" },
-    false,
-    ["encrypt", "decrypt"]
+    base64ToArrayBuffer(encryptedKey),
+    privateKey,
+    { name: "RSA-OAEP" },
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"],
   );
 }
 
-export async function encryptJournalKey(aesKey: CryptoKey, publicKey: CryptoKey) {
-  const raw = await exportJournalKeyRaw(aesKey);
-  const encrypted = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, raw);
-  return bufToBase64(encrypted);
+export async function encryptJournalBody(journalKey: CryptoKey, body: string): Promise<{
+  encryptedBody: string;
+  nonce: string;
+}> {
+  assertBrowserCrypto();
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await window.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    journalKey,
+    encoder.encode(body),
+  );
+  return {
+    encryptedBody: arrayBufferToBase64(ciphertext),
+    nonce: arrayBufferToBase64(iv.buffer),
+  };
 }
 
-export async function decryptJournalKey(encryptedBase64: string, privateKey: CryptoKey) {
-  const encrypted = base64ToBuf(encryptedBase64);
-  const raw = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encrypted);
-  return importJournalKey(raw);
-}
-
-export async function encryptText(aesKey: CryptoKey, text: string) {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(text);
-  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, encoded);
-  return { cipher: bufToBase64(cipher), iv: bufToBase64(iv.buffer) };
-}
-
-export async function decryptText(aesKey: CryptoKey, cipherBase64: string, ivBase64: string) {
-  const cipher = base64ToBuf(cipherBase64);
-  const iv = new Uint8Array(base64ToBuf(ivBase64));
-  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, cipher);
-  return new TextDecoder().decode(plain);
+export async function decryptJournalBody(
+  journalKey: CryptoKey,
+  encryptedBody: string,
+  nonce: string,
+): Promise<string> {
+  const iv = new Uint8Array(base64ToArrayBuffer(nonce));
+  const plaintext = await window.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    journalKey,
+    base64ToArrayBuffer(encryptedBody),
+  );
+  return decoder.decode(plaintext);
 }

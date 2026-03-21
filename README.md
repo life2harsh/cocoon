@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# cocoon
 
-## Getting Started
+cocoon is a private journaling application with a react frontend and a fastapi backend. this repository is prepared for public source control and keeps local user data, credentials, and private backend code out of git.
 
-First, run the development server:
+## overview
+
+- frontend built with react, react router, vite, typescript, and tailwind css
+- backend built with fastapi and sqlite
+- google oauth handled by the python backend
+- progressive web app support for notifications and reminders
+- public-safe backend entrypoint that can fall back to a local private implementation
+
+## repository modes
+
+the tracked backend entrypoint is `backend/main.py`.
+
+- if `backend/main_private.py` exists locally, `backend/main.py` loads it automatically
+- if `backend/main_private.py` is missing, `backend/main.py` serves the redacted public backend from `backend/public_app.py`
+
+this lets the public repository stay open-source-friendly while keeping private routes and local application details outside version control.
+
+## local development
+
+1. install dependencies:
+
+```bash
+npm install
+```
+
+2. create your local environment file from the example:
+
+```bash
+cp .env.example .env.local
+```
+
+3. fill in the required oauth and application values in your local env file
+
+4. if you need the full private backend locally, place it at `backend/main_private.py`
+
+5. start the frontend:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. start the backend in a second terminal:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+python backend/main.py
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+the default frontend dev server runs on `http://localhost:5173`. the backend runs on `http://localhost:8000`.
 
-## Learn More
+## environment
 
-To learn more about Next.js, take a look at the following resources:
+the repository ships with `.env.example` for local setup. the main values are:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `VITE_API_URL`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `FRONTEND_URLS`
+- `COOKIE_SECURE`
+- `SECRET_KEY`
+- `DATABASE_PATH`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+local env files are ignored by git. only `.env.example` is tracked.
 
-## Deploy on Vercel
+## scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run lint
+npm run typecheck
+python backend/main.py
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## open-source safety
+
+the following local-only files are intentionally ignored:
+
+- env files other than `.env.example`
+- `backend/main_private.py`
+- sqlite database files and related local artifacts
+- python cache files
+- local backup exports such as `*-backup.json` and `*-encrypted-backup.json`
+
+if you plan to publish your fork, keep your database, local exports, and private backend implementation untracked.
+
+## production notes
+
+- build the frontend with `npm run build`
+- the generated frontend is served from `dist/` when present
+- set `COOKIE_SECURE=true` when deploying behind https
+- update `GOOGLE_REDIRECT_URI` and `FRONTEND_URLS` for your deployed domain
+- point `DATABASE_PATH` at durable storage if you are not using the default local sqlite file
+
+## verification
+
+before pushing changes, the main checks are:
+
+```bash
+npm run typecheck
+npm run lint
+npm run build
+python -m py_compile backend/main.py
+```
