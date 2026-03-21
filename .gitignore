@@ -19,6 +19,12 @@
 
 # production
 /build
+/dist
+backend/*.db
+backend/*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-journal
 
 # misc
 .DS_Store
@@ -41,6 +47,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+backend/main_private.py
+*-backup.json
+*-encrypted-backup.json
 
 # direnv
 .direnv/
@@ -57,6 +66,7 @@ yarn-error.log*
 # caches
 .eslintcache
 .cache/
+backend/__pycache__/
 
 # vercel
 .vercel

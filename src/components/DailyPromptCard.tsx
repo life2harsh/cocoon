@@ -1,79 +1,125 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { Glyph } from "@/components/Glyph";
+import { api, type DailyPrompt } from "@/lib/api";
 
 interface Props {
   journalId: string;
+  disabledReason?: string | null;
+  onSubmit: (payload: { body: string; promptId?: string }) => Promise<void>;
 }
 
-export function DailyPromptCard({ journalId }: Props) {
+export function DailyPromptCard({ journalId, disabledReason, onSubmit }: Props) {
   const [loading, setLoading] = useState(true);
-  const [prompt, setPrompt] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState<DailyPrompt | null>(null);
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api.prompts.daily()
-      .then((data) => setPrompt(data.prompt))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    api.prompts
+      .daily(journalId)
+      .then((data) => {
+        if (!cancelled) {
+          setPrompt(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPrompt(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [journalId]);
 
   async function handleSubmit() {
-    if (!replyText.trim() || submitting) return;
+    if (!replyText.trim() || submitting || disabledReason || !prompt?.enabled) return;
     setSubmitting(true);
     try {
-      await api.entries.create(journalId, { body: replyText.trim() });
+      await onSubmit({ body: replyText.trim(), promptId: prompt.id || undefined });
       setReplyText("");
       setReplying(false);
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
     } finally {
       setSubmitting(false);
     }
   }
 
   if (loading) {
-    return <div className="warm-card p-5 animate-pulse"><div className="h-5 w-32 bg-ink/20 rounded" /></div>;
+    return <div className="h-40 rounded-[1.7rem] border border-stroke bg-card-muted animate-pulse" />;
   }
 
-  if (!prompt) return null;
+  if (!prompt?.enabled || !prompt.prompt) return null;
 
   return (
-    <div className="warm-card p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-        <span className="text-xs font-medium text-accent uppercase tracking-wide">Today's prompt</span>
-      </div>
-      
-      <p className="text-base text-foreground mb-3">{prompt}</p>
-
-      {!replying ? (
-        <button onClick={() => setReplying(true)} className="text-xs text-ink-soft hover:text-accent transition-colors">
-          Write your thoughts...
-        </button>
-      ) : (
-        <div className="space-y-2">
-          <textarea
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Your response..."
-            className="w-full h-24 resize-none rounded-xl bg-input p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <button onClick={handleSubmit} disabled={submitting || !replyText.trim()} className="px-4 h-8 rounded-lg bg-accent text-xs text-white">
-              {submitting ? "Saving..." : "Save"}
-            </button>
-            <button onClick={() => { setReplying(false); setReplyText(""); }} className="px-4 h-8 rounded-lg bg-card text-xs">Cancel</button>
+    <div className="cocoon-prompt-card relative overflow-hidden rounded-[1.85rem] px-5 py-5 sm:px-6 sm:py-6">
+      <div className="relative">
+        <div className="flex items-center gap-3">
+          <div className="cocoon-glass-subtle flex h-10 w-10 items-center justify-center rounded-2xl text-primary">
+            <Glyph name="spark" className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Daily Prompt</p>
           </div>
         </div>
-      )}
+
+        <p className="mt-5 font-display text-[1.55rem] leading-8 text-foreground sm:text-[1.95rem] sm:leading-9">
+          {prompt.prompt}
+        </p>
+
+        {!replying ? (
+          <button
+            type="button"
+            onClick={() => setReplying(true)}
+            disabled={Boolean(disabledReason)}
+            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            Draft a response
+            <Glyph name="arrow-right" className="h-4 w-4" />
+          </button>
+        ) : (
+            <div className="mt-5 space-y-3">
+              <textarea
+                value={replyText}
+                onChange={(event) => setReplyText(event.target.value)}
+                placeholder="Write into today's prompt..."
+                className="cocoon-input min-h-32 resize-none px-4 py-4 text-sm leading-7"
+              autoFocus
+              disabled={Boolean(disabledReason)}
+            />
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting || !replyText.trim() || Boolean(disabledReason)}
+                  className="cocoon-button cocoon-button-primary w-full sm:w-auto"
+                >
+                  {submitting ? "Posting..." : "Post response"}
+                </button>
+                <button
+                  type="button"
+                onClick={() => {
+                    setReplying(false);
+                    setReplyText("");
+                  }}
+                  className="cocoon-button cocoon-button-secondary w-full sm:w-auto"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+        )}
+
+        {disabledReason ? <p className="mt-4 text-sm text-foreground-soft">{disabledReason}</p> : null}
+      </div>
     </div>
   );
 }
