@@ -1,7 +1,10 @@
-import { api, type User } from "@/lib/api";
+import { api, type RecoveryKeyBackup, type User } from "@/lib/api";
 
 const PRIVATE_KEY_PREFIX = "cocoon-private-key:";
 const PUBLIC_KEY_PREFIX = "cocoon-public-key:";
+const RECOVERY_KEY_BACKUP_ALGORITHM = "pbkdf2-sha256+a256gcm";
+const RECOVERY_KEY_BACKUP_VERSION = 1;
+const RECOVERY_KEY_ITERATIONS = 250_000;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -74,6 +77,34 @@ async function importPrivateKey(privateKeyBase64: string): Promise<CryptoKey> {
     { name: "RSA-OAEP", hash: "SHA-256" },
     true,
     ["unwrapKey"],
+  );
+}
+
+async function deriveRecoveryKey(
+  passphrase: string,
+  saltBuffer: ArrayBuffer,
+  usages: KeyUsage[],
+): Promise<CryptoKey> {
+  assertBrowserCrypto();
+  const passphraseKey = await window.crypto.subtle.importKey(
+    "raw",
+    encoder.encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+
+  return window.crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: new Uint8Array(saltBuffer),
+      iterations: RECOVERY_KEY_ITERATIONS,
+      hash: "SHA-256",
+    },
+    passphraseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    usages,
   );
 }
 
@@ -161,6 +192,66 @@ export async function ensureUserEncryption(user: User): Promise<{
     needsRecovery: false,
     created: true,
   };
+}
+
+export async function createRecoveryKeyBackup(userId: string, passphrase: string): Promise<RecoveryKeyBackup> {
+  const stored = getStoredKeyPair(userId);
+  if (!stored?.privateKey) {
+    throw new Error("This browser does not have your private journal key yet.");
+  }
+
+  if (!passphrase) {
+    throw new Error("Enter a recovery passphrase first.");
+  }
+
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encryptionKey = await deriveRecoveryKey(passphrase, salt.buffer, ["encrypt"]);
+  const ciphertext = await window.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    encryptionKey,
+    encoder.encode(stored.privateKey),
+  );
+
+  return {
+    version: RECOVERY_KEY_BACKUP_VERSION,
+    algorithm: RECOVERY_KEY_BACKUP_ALGORITHM,
+    encrypted_private_key: arrayBufferToBase64(ciphertext),
+    salt: arrayBufferToBase64(salt.buffer),
+    nonce: arrayBufferToBase64(iv.buffer),
+  };
+}
+
+export async function restoreKeyPairFromBackup(
+  user: User,
+  backup: RecoveryKeyBackup,
+  passphrase: string,
+): Promise<void> {
+  if (!user.public_key) {
+    throw new Error("This account is missing its public journal key.");
+  }
+
+  if (!passphrase) {
+    throw new Error("Enter your recovery passphrase first.");
+  }
+
+  try {
+    const recoveryKey = await deriveRecoveryKey(passphrase, base64ToArrayBuffer(backup.salt), ["decrypt"]);
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: new Uint8Array(base64ToArrayBuffer(backup.nonce)) },
+      recoveryKey,
+      base64ToArrayBuffer(backup.encrypted_private_key),
+    );
+    const privateKey = decoder.decode(decrypted);
+
+    await importPrivateKey(privateKey);
+    storeKeyPair(user.id, {
+      privateKey,
+      publicKey: user.public_key,
+    });
+  } catch {
+    throw new Error("That recovery passphrase did not unlock your journal key.");
+  }
 }
 
 export async function generateJournalKey(): Promise<CryptoKey> {

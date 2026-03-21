@@ -3,7 +3,12 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { Glyph } from "@/components/Glyph";
 import { PortalShell } from "@/components/PortalShell";
 import { api, type AppSettings, type User } from "@/lib/api";
-import { ensureUserEncryption } from "@/lib/crypto";
+import {
+  createRecoveryKeyBackup,
+  ensureUserEncryption,
+  hasLocalPrivateKey,
+  restoreKeyPairFromBackup,
+} from "@/lib/crypto";
 import {
   dispatchSettingsUpdated,
   getBrowserNotificationPermission,
@@ -55,6 +60,16 @@ export default function SettingsPage() {
   const [savedProfile, setSavedProfile] = useState(false);
   const [savedPreferences, setSavedPreferences] = useState(false);
   const [encryptionNotice, setEncryptionNotice] = useState<string | null>(null);
+  const [recoveryPassphrase, setRecoveryPassphrase] = useState("");
+  const [recoveryPassphraseConfirm, setRecoveryPassphraseConfirm] = useState("");
+  const [restorePassphrase, setRestorePassphrase] = useState("");
+  const [savingRecovery, setSavingRecovery] = useState(false);
+  const [restoringRecovery, setRestoringRecovery] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoverySuccess, setRecoverySuccess] = useState<string | null>(null);
+
+  const hasLocalKey = Boolean(user && hasLocalPrivateKey(user.id));
+  const canRestoreHere = Boolean(user && user.has_key_backup && !hasLocalKey);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,10 +91,22 @@ export default function SettingsPage() {
         if (cancelled) return;
 
         if (encryption.needsRecovery) {
-          setEncryptionNotice("This browser does not have your private journal key yet, so encrypted journals created elsewhere cannot be opened here.");
+          setEncryptionNotice(
+            profile.has_key_backup
+              ? "This browser needs your recovery passphrase before encrypted journals can be opened here."
+              : "This browser does not have your private journal key yet, so encrypted journals created elsewhere cannot be opened here.",
+          );
         } else if (encryption.created) {
           setEncryptionNotice("Secure journal access was set up for this browser.");
-          setSettings((current) => current ? { ...current, encryption_ready: true } : current);
+          setSettings((current) =>
+            current
+              ? {
+                  ...current,
+                  encryption_ready: true,
+                  encryption_backup_ready: Boolean(profile.has_key_backup),
+                }
+              : current,
+          );
           const refreshedProfile = await api.profile.get();
           if (!cancelled) {
             setUser(refreshedProfile);
@@ -136,6 +163,97 @@ export default function SettingsPage() {
       window.setTimeout(() => setSavedPreferences(false), 1800);
     } finally {
       setSavingPreferences(false);
+    }
+  }
+
+  async function handleSaveRecoveryPassphrase() {
+    if (!user) return;
+
+    setRecoveryError(null);
+    setRecoverySuccess(null);
+
+    if (!hasLocalPrivateKey(user.id)) {
+      setRecoveryError("This device still does not have your private journal key.");
+      return;
+    }
+
+    if (!recoveryPassphrase) {
+      setRecoveryError("Enter a recovery passphrase first.");
+      return;
+    }
+
+    if (recoveryPassphrase.length < 8) {
+      setRecoveryError("Use a longer recovery passphrase so it is harder to guess.");
+      return;
+    }
+
+    if (recoveryPassphrase !== recoveryPassphraseConfirm) {
+      setRecoveryError("Those recovery passphrases do not match.");
+      return;
+    }
+
+    setSavingRecovery(true);
+    try {
+      const backup = await createRecoveryKeyBackup(user.id, recoveryPassphrase);
+      const result = await api.recovery.save(backup);
+      setUser(result.user);
+      setSettings((current) =>
+        current
+          ? { ...current, encryption_ready: true, encryption_backup_ready: true }
+          : current,
+      );
+      setEncryptionNotice("This account can now restore its journal key on another device.");
+      setRecoverySuccess(
+        result.user.has_key_backup
+          ? "Recovery passphrase saved. New devices can restore this journal key now."
+          : "Recovery backup saved.",
+      );
+      setRecoveryPassphrase("");
+      setRecoveryPassphraseConfirm("");
+    } catch (error) {
+      setRecoveryError(error instanceof Error ? error.message : "Recovery backup could not be saved.");
+    } finally {
+      setSavingRecovery(false);
+    }
+  }
+
+  async function handleRestoreDevice() {
+    if (!user) return;
+
+    setRecoveryError(null);
+    setRecoverySuccess(null);
+
+    if (!restorePassphrase) {
+      setRecoveryError("Enter your recovery passphrase to unlock this device.");
+      return;
+    }
+
+    setRestoringRecovery(true);
+    try {
+      const result = await api.recovery.get();
+      if (!result.backup) {
+        throw new Error("This account does not have a recovery backup yet.");
+      }
+
+      await restoreKeyPairFromBackup(user, result.backup, restorePassphrase);
+      const refreshedProfile = await api.profile.get();
+      setUser(refreshedProfile);
+      setSettings((current) =>
+        current
+          ? {
+              ...current,
+              encryption_ready: true,
+              encryption_backup_ready: Boolean(refreshedProfile.has_key_backup),
+            }
+          : current,
+      );
+      setEncryptionNotice("Secure journal access was restored on this browser.");
+      setRecoverySuccess("This device can now open and create encrypted journals.");
+      setRestorePassphrase("");
+    } catch (error) {
+      setRecoveryError(error instanceof Error ? error.message : "This device could not be restored.");
+    } finally {
+      setRestoringRecovery(false);
     }
   }
 
@@ -336,6 +454,103 @@ export default function SettingsPage() {
                 {encryptionNotice || (loading ? "Preparing journal privacy on this device." : "Entries are encrypted on this device before they sync.")}
               </p>
             </div>
+
+            <div className="mt-5 rounded-[1.4rem] border border-stroke bg-card-muted px-4 py-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Recovery backup</p>
+              <p className="mt-3 text-sm leading-7 text-foreground-soft">
+                {user?.has_key_backup
+                  ? "A recovery backup is saved for this account, so you can unlock encrypted journals on another device with your passphrase."
+                  : "Save a recovery passphrase on a device that already has your key so future devices can restore it."}
+              </p>
+            </div>
+
+            {user && hasLocalKey ? (
+              <div className="mt-5 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Recovery passphrase</span>
+                    <input
+                      type="password"
+                      value={recoveryPassphrase}
+                      onChange={(event) => setRecoveryPassphrase(event.target.value)}
+                      placeholder="At least 8 characters"
+                      className="cocoon-input mt-2 px-4 py-3 text-sm"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Confirm passphrase</span>
+                    <input
+                      type="password"
+                      value={recoveryPassphraseConfirm}
+                      onChange={(event) => setRecoveryPassphraseConfirm(event.target.value)}
+                      placeholder="Repeat passphrase"
+                      className="cocoon-input mt-2 px-4 py-3 text-sm"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveRecoveryPassphrase}
+                  disabled={savingRecovery}
+                  className="cocoon-button cocoon-button-primary w-full"
+                >
+                  {savingRecovery
+                    ? "Saving..."
+                    : user.has_key_backup
+                    ? "Update recovery passphrase"
+                    : "Save recovery passphrase"}
+                </button>
+              </div>
+            ) : null}
+
+            {canRestoreHere ? (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-[1.4rem] border border-stroke bg-card-muted px-4 py-4">
+                  <p className="text-sm leading-7 text-foreground-soft">
+                    This account already has a recovery backup. Enter that passphrase once to unlock encrypted journals on this browser.
+                  </p>
+                </div>
+                <label className="block">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Recovery passphrase</span>
+                  <input
+                    type="password"
+                    value={restorePassphrase}
+                    onChange={(event) => setRestorePassphrase(event.target.value)}
+                    placeholder="Enter your existing passphrase"
+                    className="cocoon-input mt-2 px-4 py-3 text-sm"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRestoreDevice}
+                  disabled={restoringRecovery}
+                  className="cocoon-button cocoon-button-primary w-full"
+                >
+                  {restoringRecovery ? "Restoring..." : "Restore this device"}
+                </button>
+              </div>
+            ) : null}
+
+            {user && !hasLocalKey && !user.has_key_backup ? (
+              <div className="mt-5 rounded-[1.4rem] border border-stroke bg-card-muted px-4 py-4">
+                <p className="text-sm leading-7 text-foreground-soft">
+                  No recovery backup is saved for this account yet. Open Cocoon on the original device, then save a recovery passphrase here first.
+                </p>
+              </div>
+            ) : null}
+
+            {recoveryError ? (
+              <div className="mt-5 rounded-[1.4rem] border border-danger/30 bg-danger/10 px-4 py-4 text-sm leading-6 text-danger">
+                {recoveryError}
+              </div>
+            ) : null}
+
+            {recoverySuccess ? (
+              <div className="mt-5 rounded-[1.4rem] border border-stroke bg-primary-soft px-4 py-4 text-sm leading-6 text-primary">
+                {recoverySuccess}
+              </div>
+            ) : null}
           </div>
         </div>
 

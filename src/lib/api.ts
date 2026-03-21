@@ -6,6 +6,7 @@ export interface User {
   display_name: string | null;
   avatar_url: string | null;
   public_key?: string | null;
+  has_key_backup?: boolean;
 }
 
 export interface Journal {
@@ -65,6 +66,15 @@ export interface AppSettings {
   quiet_hours_start: string;
   quiet_hours_end: string;
   encryption_ready: boolean;
+  encryption_backup_ready: boolean;
+}
+
+export interface RecoveryKeyBackup {
+  version: number;
+  algorithm: string;
+  encrypted_private_key: string;
+  salt: string;
+  nonce: string;
 }
 
 export interface DailyPrompt {
@@ -155,6 +165,19 @@ export const api = {
       fetchApi<{ success: boolean; user: User }>('/profile', {
         method: 'PATCH',
         body: JSON.stringify(data),
+      }, token),
+  },
+  recovery: {
+    get: (token?: string) =>
+      fetchApi<{ has_backup: boolean; backup: RecoveryKeyBackup | null }>('/profile/recovery-key', {}, token),
+    save: (backup: RecoveryKeyBackup, token?: string) =>
+      fetchApi<{ success: boolean; user: User; has_backup: boolean }>('/profile/recovery-key', {
+        method: 'PUT',
+        body: JSON.stringify({ backup }),
+      }, token),
+    remove: (token?: string) =>
+      fetchApi<{ success: boolean; user: User; has_backup: boolean }>('/profile/recovery-key', {
+        method: 'DELETE',
       }, token),
   },
   settings: {

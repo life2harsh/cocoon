@@ -125,7 +125,11 @@ export default function JournalClient({ journal, entries, members, user }: Journ
         let activeKey: CryptoKey | null = null;
 
         if (encryption.needsRecovery) {
-          setKeyNotice("This browser is missing your private journal key, so encrypted entries cannot be opened here yet.");
+          setKeyNotice(
+            user.has_key_backup
+              ? "Restore this device in Settings with your recovery passphrase to open encrypted entries here."
+              : "This browser is missing your private journal key, so encrypted entries cannot be opened here yet.",
+          );
         } else if (keyState.current?.encrypted_key) {
           activeKey = await unwrapJournalKeyForUser(user.id, keyState.current.encrypted_key);
         } else if (journal.role === "owner" && encryption.publicKey) {

@@ -67,7 +67,11 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
 
       const encryption = await ensureUserEncryption(profile);
       if (encryption.needsRecovery || !encryption.publicKey) {
-        setStatusMessage("This browser is missing your private journal key, so new encrypted journals cannot be created here yet.");
+        setStatusMessage(
+          profile.has_key_backup
+            ? "Restore this device from Settings with your recovery passphrase before creating encrypted journals here."
+            : "This browser is missing your private journal key, so new encrypted journals cannot be created here yet.",
+        );
         return;
       }
 
