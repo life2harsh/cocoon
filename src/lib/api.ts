@@ -29,6 +29,8 @@ export interface Entry {
   encrypted_body: string | null;
   nonce: string | null;
   prompt_id: string | null;
+  prompt_text?: string | null;
+  prompt_date?: string | null;
   created_at: string;
   edited_at: string | null;
   author?: {

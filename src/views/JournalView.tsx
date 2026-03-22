@@ -536,6 +536,12 @@ export default function JournalClient({ journal, entries, members, user }: Journ
 
                     {editingId === entry.id ? (
                       <div className="mt-4 space-y-3">
+                        {entry.prompt_text ? (
+                          <div className="rounded-[1.25rem] border border-stroke bg-card-muted px-4 py-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Prompt</p>
+                            <p className="mt-2 font-display text-xl leading-8 text-foreground">{entry.prompt_text}</p>
+                          </div>
+                        ) : null}
                         <textarea value={editingBody} onChange={(event) => setEditingBody(event.target.value)} className="cocoon-input min-h-32 resize-none px-4 py-4 text-sm leading-7" />
                         <div className="flex flex-col gap-3 sm:flex-row">
                           <button type="button" onClick={() => handleUpdateEntry(entry.id, entry.prompt_id || undefined)} className="cocoon-button cocoon-button-primary w-full sm:w-auto">Save</button>
@@ -543,7 +549,27 @@ export default function JournalClient({ journal, entries, members, user }: Journ
                         </div>
                       </div>
                     ) : (
-                      <p className="mt-4 whitespace-pre-wrap text-sm leading-8 text-foreground">{entry.resolvedBody}</p>
+                      <div className="mt-4 space-y-4">
+                        {entry.prompt_text ? (
+                          <div className="rounded-[1.25rem] border border-stroke bg-card-muted px-4 py-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Prompt</p>
+                            {entry.prompt_date ? (
+                              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-foreground-muted">
+                                {new Date(entry.prompt_date).toLocaleDateString()}
+                              </p>
+                            ) : null}
+                            <p className="mt-2 font-display text-xl leading-8 text-foreground">{entry.prompt_text}</p>
+                          </div>
+                        ) : null}
+                        <div>
+                          {entry.prompt_text ? (
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Response</p>
+                          ) : null}
+                          <p className={`${entry.prompt_text ? "mt-2" : ""} whitespace-pre-wrap text-sm leading-8 text-foreground`}>
+                            {entry.resolvedBody}
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </article>
                 );

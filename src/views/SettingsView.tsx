@@ -143,7 +143,10 @@ export default function SettingsPage() {
     if (!settings) return;
     setSavingPreferences(true);
     try {
-      if (settings.daily_reminder_enabled && notificationPermission === "default") {
+      const needsBrowserNotifications =
+        settings.notifications_enabled || settings.daily_reminder_enabled;
+
+      if (needsBrowserNotifications && notificationPermission === "default") {
         const nextPermission = await requestBrowserNotificationPermission();
         setNotificationPermission(nextPermission);
       }
