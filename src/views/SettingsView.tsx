@@ -455,6 +455,15 @@ export default function SettingsPage() {
               </p>
             </div>
 
+            {user && hasLocalKey && !user.has_key_backup ? (
+              <div className="mt-5 rounded-[1.4rem] border border-primary/20 bg-primary-soft px-4 py-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Recommended next step</p>
+                <p className="mt-3 text-sm leading-7 text-foreground-soft">
+                  Save a recovery passphrase now. Without it, the same account cannot unlock encrypted journals on a new browser or device.
+                </p>
+              </div>
+            ) : null}
+
             <div className="mt-5 rounded-[1.4rem] border border-stroke bg-card-muted px-4 py-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Recovery backup</p>
               <p className="mt-3 text-sm leading-7 text-foreground-soft">

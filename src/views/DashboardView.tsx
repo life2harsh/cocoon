@@ -6,7 +6,7 @@ import { PortalShell } from "@/components/PortalShell";
 import { Reveal } from "@/components/Reveal";
 import { StreakBadge } from "@/components/StreakBadge";
 import { api, clearToken, type Journal, type User } from "@/lib/api";
-import { ensureUserEncryption, generateJournalKey, wrapJournalKeyForUser } from "@/lib/crypto";
+import { ensureUserEncryption, generateJournalKey, hasLocalPrivateKey, wrapJournalKeyForUser } from "@/lib/crypto";
 
 type AppClientProps = {
   journals: Journal[];
@@ -173,9 +173,26 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
         ? `${activeJournals.length} active journal${activeJournals.length === 1 ? "" : "s"}, showing the most recent ${Math.min(4, activeJournals.length)}.`
         : "Create your first journal to start building your recent list.";
   const sectionTitle = normalizedSearch ? "Matching spaces" : activeView === "journal" ? "All spaces" : "Recently edited";
+  const shouldPromptRecoverySetup = Boolean(user?.public_key && user && hasLocalPrivateKey(user.id) && !user.has_key_backup);
 
   const rightRail = (
       <div className="flex h-full flex-col gap-6">
+        {shouldPromptRecoverySetup ? (
+          <div className="cocoon-card border-primary/20 bg-primary-soft p-5 sm:p-6">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Recovery recommended</p>
+            <h3 className="mt-3 font-display text-2xl text-foreground">Save a recovery passphrase</h3>
+            <p className="mt-3 text-sm leading-7 text-foreground-soft">
+              This device already has your journal key. Save a recovery passphrase once so future devices can unlock encrypted journals too.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.assign("/app/settings")}
+              className="cocoon-button cocoon-button-primary mt-4 w-full"
+            >
+              Set recovery passphrase
+            </button>
+          </div>
+        ) : null}
         <div className="cocoon-panel p-5 sm:p-6">
             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Today&apos;s prompt</p>
           <p className="mt-3 font-display text-lg italic leading-7 text-foreground sm:mt-4 sm:text-xl sm:leading-8">
