@@ -79,6 +79,20 @@ export interface RecoveryKeyBackup {
   nonce: string;
 }
 
+export interface PushPublicKeyResponse {
+  enabled: boolean;
+  public_key: string | null;
+}
+
+export interface PushSubscriptionPayload {
+  endpoint: string;
+  expirationTime: number | null;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
+
 export interface DailyPrompt {
   id: string | null;
   date: string;
@@ -180,6 +194,19 @@ export const api = {
     remove: (token?: string) =>
       fetchApi<{ success: boolean; user: User; has_backup: boolean }>('/profile/recovery-key', {
         method: 'DELETE',
+      }, token),
+  },
+  push: {
+    publicKey: (token?: string) => fetchApi<PushPublicKeyResponse>('/push/public-key', {}, token),
+    subscribe: (subscription: PushSubscriptionPayload, token?: string) =>
+      fetchApi<{ success: boolean }>('/push/subscription', {
+        method: 'PUT',
+        body: JSON.stringify(subscription),
+      }, token),
+    unsubscribe: (endpoint: string, token?: string) =>
+      fetchApi<{ success: boolean }>('/push/subscription', {
+        method: 'DELETE',
+        body: JSON.stringify({ endpoint }),
       }, token),
   },
   settings: {

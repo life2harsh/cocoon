@@ -1,43 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Glyph } from "@/components/Glyph";
 import { api, type AppSettings, type NotificationItem } from "@/lib/api";
 import {
   getBrowserNotificationPermission,
-  isQuietHoursActive,
   requestBrowserNotificationPermission,
   SETTINGS_UPDATED_EVENT,
 } from "@/lib/notifications";
-import { showAppNotification } from "@/lib/pwa";
 
 const POLL_INTERVAL_MS = 30000;
-const SEEN_KEY = "cocoon_notification_seen";
 
 type UserSummary = {
   id?: string | null;
 };
-
-function loadSeenIds(): Set<string> {
-  if (typeof window === "undefined") {
-    return new Set();
-  }
-
-  const stored = window.sessionStorage.getItem(SEEN_KEY);
-  if (!stored) {
-    return new Set();
-  }
-
-  try {
-    return new Set(JSON.parse(stored) as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function persistSeenIds(ids: Set<string>) {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(ids)));
-}
 
 function formatRelativeTime(value: string): string {
   const diffMs = new Date(value).getTime() - Date.now();
@@ -65,8 +40,6 @@ export function NotificationBell({ user }: { user?: UserSummary | null }) {
   const [loading, setLoading] = useState(true);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(getBrowserNotificationPermission());
   const navigate = useNavigate();
-  const initializedRef = useRef(false);
-  const seenRef = useRef<Set<string>>(loadSeenIds());
 
   useEffect(() => {
     function handleSettingsUpdated(event: Event) {
@@ -104,36 +77,6 @@ export function NotificationBell({ user }: { user?: UserSummary | null }) {
         setItems(feed.items);
         setUnreadCount(feed.unread_count);
         setSettings(nextSettings);
-
-        const freshUnread = feed.items.filter((item) => !item.read_at && !seenRef.current.has(item.id));
-        if (!initializedRef.current) {
-          freshUnread.forEach((item) => seenRef.current.add(item.id));
-          persistSeenIds(seenRef.current);
-          initializedRef.current = true;
-          return;
-        }
-
-        if (
-          nextSettings.notifications_enabled &&
-          permission === "granted" &&
-          document.visibilityState === "hidden" &&
-          !isQuietHoursActive(nextSettings)
-        ) {
-          for (const item of freshUnread) {
-            await showAppNotification(item.title, {
-              body: item.body,
-              icon: "/icons/icon-192.png",
-              badge: "/icons/icon-192.png",
-              tag: item.id,
-              data: { url: item.target_url || "/app" },
-            });
-          }
-        }
-
-        if (freshUnread.length > 0) {
-          freshUnread.forEach((item) => seenRef.current.add(item.id));
-          persistSeenIds(seenRef.current);
-        }
       } catch {
         // Keep the shell usable even if notifications fail.
       } finally {
@@ -151,6 +94,7 @@ export function NotificationBell({ user }: { user?: UserSummary | null }) {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        setPermission(getBrowserNotificationPermission());
         void loadNotifications();
       }
     };
@@ -162,7 +106,7 @@ export function NotificationBell({ user }: { user?: UserSummary | null }) {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [permission, user?.id]);
+  }, [user?.id]);
 
   async function handleEnableBrowserAlerts() {
     const nextPermission = await requestBrowserNotificationPermission();
@@ -238,7 +182,7 @@ export function NotificationBell({ user }: { user?: UserSummary | null }) {
               >
                 <div>
                   <p className="text-sm font-semibold text-foreground">Enable browser alerts</p>
-                  <p className="mt-1 text-xs leading-5 text-foreground-soft">Allow Cocoon to send system notifications while the app is active.</p>
+                  <p className="mt-1 text-xs leading-5 text-foreground-soft">Allow Cocoon to send browser notifications on this device.</p>
                 </div>
                 <Glyph name="arrow-right" className="h-4 w-4 text-foreground-muted" />
               </button>

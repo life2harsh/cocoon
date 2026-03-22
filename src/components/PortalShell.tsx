@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Glyph } from "@/components/Glyph";
 import { NightSky } from "@/components/NightSky";
 import { NotificationBell } from "@/components/NotificationBell";
+import { PushSubscriptionManager } from "@/components/PushSubscriptionManager";
 import { ReminderScheduler } from "@/components/ReminderScheduler";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -57,6 +58,7 @@ export function PortalShell({
 
   return (
     <div className="relative min-h-dvh cocoon-fade-in">
+      <PushSubscriptionManager userId={user?.id} />
       <ReminderScheduler userId={user?.id} />
       <NightSky />
       <div className="cocoon-ambient-orb cocoon-ambient-orb--left fixed -z-10" />

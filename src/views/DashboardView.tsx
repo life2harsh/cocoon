@@ -7,6 +7,7 @@ import { Reveal } from "@/components/Reveal";
 import { StreakBadge } from "@/components/StreakBadge";
 import { api, clearToken, type Journal, type User } from "@/lib/api";
 import { ensureUserEncryption, generateJournalKey, hasLocalPrivateKey, wrapJournalKeyForUser } from "@/lib/crypto";
+import { getExistingPushSubscription, unsubscribePushSubscription } from "@/lib/pwa";
 
 type AppClientProps = {
   journals: Journal[];
@@ -128,6 +129,25 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
   }
 
   async function handleSignOut() {
+    try {
+      const existingSubscription = await getExistingPushSubscription();
+      if (existingSubscription?.endpoint) {
+        try {
+          await api.push.unsubscribe(existingSubscription.endpoint);
+        } catch {
+          // Server cleanup is best effort during sign-out.
+        }
+
+        try {
+          await unsubscribePushSubscription();
+        } catch {
+          // Local cleanup should not block sign-out.
+        }
+      }
+    } catch {
+      // Ignore local push cleanup failures and continue with sign-out.
+    }
+
     try {
       await api.auth.signout();
     } catch {

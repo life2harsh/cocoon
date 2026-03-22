@@ -364,7 +364,7 @@ export default function SettingsPage() {
               <div className="mt-5 space-y-4">
                 <ToggleRow
                   title="Activity notifications"
-                  description="Allow Cocoon to surface invite and journal activity alerts."
+                  description="Allow Cocoon to send invite and journal activity alerts, even when this tab is not open."
                   enabled={settings.notifications_enabled}
                   onToggle={() => setSettings((current) => current ? { ...current, notifications_enabled: !current.notifications_enabled } : current)}
                 />
