@@ -27,6 +27,29 @@ export function StreakBadge({ variant = "default" }: StreakBadgeProps) {
   const [streak, setStreak] = useState<Streak | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCalendar, setShowCalendar] = useState(false);
+  const resolvedStreak = streak ?? {
+    current_streak: 0,
+    longest_streak: 0,
+    last_entry_date: null,
+    activity: [],
+  };
+  const isRail = variant === "rail";
+  const previewWeeks = useMemo(
+    () => buildHeatmapWeeks(resolvedStreak.activity, 84),
+    [resolvedStreak.activity],
+  );
+  const fullWeeks = useMemo(
+    () => buildHeatmapWeeks(resolvedStreak.activity, 365),
+    [resolvedStreak.activity],
+  );
+  const monthCells = useMemo(
+    () => buildMonthCells(resolvedStreak.activity, new Date()),
+    [resolvedStreak.activity],
+  );
+  const maxCount = useMemo(
+    () => Math.max(1, ...resolvedStreak.activity.map((item) => item.count)),
+    [resolvedStreak.activity],
+  );
 
   useEffect(() => {
     api.streaks
@@ -51,30 +74,6 @@ export function StreakBadge({ variant = "default" }: StreakBadgeProps) {
   if (loading) {
     return <div className="h-56 rounded-[1.75rem] border border-stroke bg-card-muted animate-pulse sm:h-64" />;
   }
-
-  const resolvedStreak = streak ?? {
-    current_streak: 0,
-    longest_streak: 0,
-    last_entry_date: null,
-    activity: [],
-  };
-  const isRail = variant === "rail";
-  const previewWeeks = useMemo(
-    () => buildHeatmapWeeks(resolvedStreak.activity, 84),
-    [resolvedStreak.activity],
-  );
-  const fullWeeks = useMemo(
-    () => buildHeatmapWeeks(resolvedStreak.activity, 365),
-    [resolvedStreak.activity],
-  );
-  const monthCells = useMemo(
-    () => buildMonthCells(resolvedStreak.activity, new Date()),
-    [resolvedStreak.activity],
-  );
-  const maxCount = useMemo(
-    () => Math.max(1, ...resolvedStreak.activity.map((item) => item.count)),
-    [resolvedStreak.activity],
-  );
 
   return (
     <>
