@@ -16,6 +16,7 @@ import {
   wrapJournalKeyForUser,
   unwrapJournalKeyForUser,
 } from "@/lib/crypto";
+import { formatBackendDate, formatBackendTime } from "@/lib/dates";
 
 type Journal = {
   id: string;
@@ -314,7 +315,7 @@ export default function JournalClient({ journal, entries, members, user }: Journ
     const searchableText = [
       entry.resolvedBody,
       entry.author_id === user.id ? "you" : author?.display_name || "collaborator",
-      new Date(entry.created_at).toLocaleDateString(),
+      formatBackendDate(entry.created_at),
     ]
       .join(" ")
       .toLowerCase();
@@ -518,7 +519,7 @@ export default function JournalClient({ journal, entries, members, user }: Journ
                           {entry.author_id === user.id ? "You" : author?.display_name || "Collaborator"}
                         </p>
                         <p className="mt-1 text-sm text-foreground-soft">
-                          {new Date(entry.created_at).toLocaleDateString()} · {new Date(entry.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {formatBackendDate(entry.created_at)} · {formatBackendTime(entry.created_at)}
                         </p>
                       </div>
                       {entry.author_id === user.id ? (
@@ -556,7 +557,7 @@ export default function JournalClient({ journal, entries, members, user }: Journ
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">Prompt</p>
                             {entry.prompt_date ? (
                               <p className="mt-1 text-xs uppercase tracking-[0.16em] text-foreground-muted">
-                                {new Date(entry.prompt_date).toLocaleDateString()}
+                                {formatBackendDate(entry.prompt_date)}
                               </p>
                             ) : null}
                             <p className="mt-2 font-display text-xl leading-8 text-foreground">{entry.prompt_text}</p>

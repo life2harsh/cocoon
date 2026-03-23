@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Glyph } from "@/components/Glyph";
 import { api, type Streak } from "@/lib/api";
+import { formatBackendDate } from "@/lib/dates";
 
 type HeatmapCell = {
   key: string;
@@ -84,7 +85,7 @@ export function StreakBadge({ variant = "default" }: StreakBadgeProps) {
             <h3 className="mt-2 font-display text-[2rem] leading-none text-foreground sm:text-3xl">Streak</h3>
             <p className="mt-2 text-sm leading-6 text-foreground-soft">
               {resolvedStreak.last_entry_date
-                ? `Last entry ${new Date(resolvedStreak.last_entry_date).toLocaleDateString()}.`
+                ? `Last entry ${formatBackendDate(resolvedStreak.last_entry_date)}.`
                 : "Write once to start filling in your rhythm."}
             </p>
           </div>

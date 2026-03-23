@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Glyph } from "@/components/Glyph";
 import { api, type AppSettings, type NotificationItem } from "@/lib/api";
+import { parseBackendDate } from "@/lib/dates";
 import {
   getBrowserNotificationPermission,
   requestBrowserNotificationPermission,
@@ -15,7 +16,12 @@ type UserSummary = {
 };
 
 function formatRelativeTime(value: string): string {
-  const diffMs = new Date(value).getTime() - Date.now();
+  const parsed = parseBackendDate(value);
+  if (!parsed) {
+    return "just now";
+  }
+
+  const diffMs = parsed.getTime() - Date.now();
   const diffMinutes = Math.round(diffMs / 60000);
   const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 

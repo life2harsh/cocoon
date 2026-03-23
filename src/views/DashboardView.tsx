@@ -7,6 +7,7 @@ import { Reveal } from "@/components/Reveal";
 import { StreakBadge } from "@/components/StreakBadge";
 import { api, clearToken, type Journal, type User } from "@/lib/api";
 import { ensureUserEncryption, generateJournalKey, hasLocalPrivateKey, wrapJournalKeyForUser } from "@/lib/crypto";
+import { getBackendTimestamp } from "@/lib/dates";
 import { getExistingPushSubscription, unsubscribePushSubscription } from "@/lib/pwa";
 
 type AppClientProps = {
@@ -160,7 +161,7 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
   const sortedJournals = [...journals].sort(
-    (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime(),
+    (left, right) => getBackendTimestamp(right.updated_at) - getBackendTimestamp(left.updated_at),
   );
   const activeJournals = sortedJournals.filter((journal) => !journal.archived_at);
   const archivedJournals = sortedJournals.filter((journal) => Boolean(journal.archived_at));
