@@ -72,7 +72,7 @@ export default function HomePage() {
                     <span className="block italic text-white/90">write, reflect, and share.</span>
                   </h1>
                   <p className="mt-6 max-w-2xl text-base leading-8 text-white/76">
-                    Cocoon gives you private notebooks, shared journals, and daily prompts in one quieter space that feels intentional on desktop and mobile.
+                    cocoon gives you private notebooks, shared journals, and daily prompts in one quieter space that feels intentional on desktop and mobile.
                   </p>
                   <div className="mt-8 flex flex-wrap gap-3">
                     <Link to="/login" className="cocoon-button bg-white px-6 text-[#2a1b3d]">
@@ -104,15 +104,15 @@ export default function HomePage() {
                 <InteractiveSurface className="rounded-[1.75rem]">
                   <div className="cocoon-card p-6">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Daily prompts</p>
-                    <p className="mt-3 font-display text-2xl text-foreground">Different per journal</p>
+                    <p className="mt-3 font-display text-2xl text-foreground">for days when you don't have something to write about.  </p>
                   </div>
                 </InteractiveSurface>
               </Reveal>
               <Reveal delay={220}>
                 <InteractiveSurface className="rounded-[1.75rem]">
                   <div className="cocoon-card p-6">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Available anywhere</p>
-                    <p className="mt-3 font-display text-2xl text-foreground">Desktop and mobile PWA</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Safe and Secure</p>
+                    <p className="mt-3 font-display text-2xl text-foreground">end-to-end encrypted, so that no one reads your personal thoughts. </p>
                   </div>
                 </InteractiveSurface>
               </Reveal>
