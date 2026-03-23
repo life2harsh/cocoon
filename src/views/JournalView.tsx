@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { DailyPromptCard } from "@/components/DailyPromptCard";
 import { Glyph } from "@/components/Glyph";
 import { PortalShell } from "@/components/PortalShell";
@@ -306,7 +306,8 @@ export default function JournalClient({ journal, entries, members, user }: Journ
   const writingDisabledReason = keyLoading
     ? "Preparing secure writing..."
     : keyNotice;
-  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
   const visibleEntries = resolvedEntries.filter((entry) => {
     if (!normalizedSearch) return true;
     const author = members.find((member) => member.user_id === entry.author_id);
@@ -510,7 +511,7 @@ export default function JournalClient({ journal, entries, members, user }: Journ
               visibleEntries.map((entry) => {
                 const author = members.find((member) => member.user_id === entry.author_id);
                 return (
-                  <article key={entry.id} className="cocoon-card p-5 sm:p-6">
+                  <article key={entry.id} className="cocoon-card cocoon-virtual-card p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">

@@ -64,7 +64,7 @@ export function PortalShell({
       <div className="cocoon-ambient-orb cocoon-ambient-orb--left fixed -z-10" />
       <div className="cocoon-ambient-orb cocoon-ambient-orb--right fixed -z-10" />
 
-      <aside className="cocoon-glass hidden xl:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-stroke px-7 py-7">
+      <aside className="cocoon-shell-surface hidden xl:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-stroke px-7 py-7">
         <Link to="/" className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--primary),rgba(168,192,216,0.9))] text-white shadow-[0_14px_28px_var(--shadow-soft)]">
             <Glyph name="leaf" className="h-5 w-5" />
@@ -108,7 +108,7 @@ export function PortalShell({
       </aside>
 
       <div className={`relative ${hasRail ? "xl:mr-[22rem]" : ""} xl:ml-64`}>
-        <header className="cocoon-glass sticky top-0 z-20 border-b border-stroke px-3.5 py-3 sm:px-8 sm:py-4 lg:px-12">
+        <header className="cocoon-shell-surface sticky top-0 z-20 border-b border-stroke px-3.5 py-3 sm:px-8 sm:py-4 lg:px-12">
           <div className="mx-auto max-w-6xl">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
@@ -178,12 +178,12 @@ export function PortalShell({
       </div>
 
       {rightRail ? (
-        <aside className="cocoon-glass hidden xl:block fixed inset-y-0 right-0 z-10 w-[22rem] border-l border-stroke px-6 py-7">
+        <aside className="cocoon-shell-surface hidden xl:block fixed inset-y-0 right-0 z-10 w-[22rem] border-l border-stroke px-6 py-7">
           <div className="h-full overflow-y-auto cocoon-scroll pr-2">{rightRail}</div>
         </aside>
       ) : null}
 
-      <nav className="cocoon-glass-strong cocoon-mobile-nav fixed inset-x-2.5 bottom-2.5 z-40 flex items-center justify-around rounded-[1.55rem] border border-stroke px-2 pt-2 shadow-[0_-2px_24px_var(--shadow-soft)] xl:hidden">
+      <nav className="cocoon-shell-surface-strong cocoon-mobile-nav fixed inset-x-2.5 bottom-2.5 z-40 flex items-center justify-around rounded-[1.55rem] border border-stroke px-2 pt-2 shadow-[0_-2px_24px_var(--shadow-soft)] xl:hidden">
         {desktopNav.map((item) => {
           const activeItem = item.key === active;
           return (

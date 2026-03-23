@@ -18,7 +18,8 @@ type Comet = {
   life: number;
 };
 
-const STAR_COUNT = 300;
+const MAX_DEVICE_PIXEL_RATIO = 1.4;
+const TARGET_FRAME_MS = 1000 / 24;
 
 export function NightSky() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -36,17 +37,44 @@ export function NightSky() {
     let width = 0;
     let height = 0;
     let animationFrame = 0;
+    let backdropGradient: CanvasGradient | null = null;
     let lastCometTime = 0;
+    let lastFrameTime = 0;
+    let running = false;
+    let isDarkTheme = document.documentElement.getAttribute("data-theme") === "dark";
     const stars: Star[] = [];
     const comets: Comet[] = [];
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const largeViewportQuery = window.matchMedia("(min-width: 900px)");
 
     function resize() {
-      width = canvasElement.width = window.innerWidth;
-      height = canvasElement.height = window.innerHeight;
-      stars.length = 0;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
 
-      for (let index = 0; index < STAR_COUNT; index += 1) {
+      canvasElement.width = Math.floor(width * devicePixelRatio);
+      canvasElement.height = Math.floor(height * devicePixelRatio);
+      canvasElement.style.width = `${width}px`;
+      canvasElement.style.height = `${height}px`;
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+      backdropGradient = ctx.createRadialGradient(
+        width * 0.5,
+        height * 0.5,
+        0,
+        width * 0.5,
+        height * 0.5,
+        Math.max(width, height) * 0.65,
+      );
+      backdropGradient.addColorStop(0, "rgba(24, 27, 35, 0.75)");
+      backdropGradient.addColorStop(0.55, "rgba(9, 11, 18, 0.28)");
+      backdropGradient.addColorStop(1, "rgba(2, 2, 10, 0)");
+
+      stars.length = 0;
+      comets.length = 0;
+
+      const starCount = width < 640 ? 110 : width < 1024 ? 150 : 180;
+      for (let index = 0; index < starCount; index += 1) {
         stars.push({
           x: Math.random() * width,
           y: Math.random() * height,
@@ -59,6 +87,10 @@ export function NightSky() {
     }
 
     function spawnComet() {
+      if (!largeViewportQuery.matches) {
+        return;
+      }
+
       const side = Math.floor(Math.random() * 4);
       const speed = 3 + Math.random() * 4;
       const angle = Math.random() * (Math.PI / 3) - Math.PI / 6;
@@ -102,35 +134,29 @@ export function NightSky() {
     function drawBackdrop() {
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, width, height);
-
-      const baseGradient = ctx.createRadialGradient(width * 0.5, height * 0.5, 0, width * 0.5, height * 0.5, Math.max(width, height) * 0.65);
-      baseGradient.addColorStop(0, "rgba(24, 27, 35, 0.75)");
-      baseGradient.addColorStop(0.55, "rgba(9, 11, 18, 0.28)");
-      baseGradient.addColorStop(1, "rgba(2, 2, 10, 0)");
-      ctx.fillStyle = baseGradient;
-      ctx.fillRect(0, 0, width, height);
+      if (backdropGradient) {
+        ctx.fillStyle = backdropGradient;
+        ctx.fillRect(0, 0, width, height);
+      }
     }
 
-    function animate(time: number) {
-      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    function renderFrame(time: number, animated: boolean) {
       ctx.clearRect(0, 0, width, height);
-
-      if (!isDark) {
-        animationFrame = window.requestAnimationFrame(animate);
+      if (!isDarkTheme) {
         return;
       }
 
       drawBackdrop();
 
       for (const star of stars) {
-        const pulse = Math.sin(time * star.pulseSpeed + star.pulseOffset);
-        const alpha = Math.max(0.16, Math.min(0.96, star.baseAlpha + pulse * 0.22));
+        const pulse = animated ? Math.sin(time * star.pulseSpeed + star.pulseOffset) : 0;
+        const alpha = Math.max(0.16, Math.min(0.96, star.baseAlpha + pulse * 0.18));
 
-        if (alpha > 0.56) {
-          ctx.globalAlpha = (alpha - 0.56) * 0.45;
+        if (alpha > 0.68 && largeViewportQuery.matches) {
+          ctx.globalAlpha = (alpha - 0.68) * 0.34;
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
-          ctx.arc(star.x, star.y, star.radius * 3.3, 0, Math.PI * 2);
+          ctx.arc(star.x, star.y, star.radius * 2.8, 0, Math.PI * 2);
           ctx.fill();
         }
 
@@ -165,9 +191,11 @@ export function NightSky() {
         ctx.arc(comet.x, comet.y, 2, 0, Math.PI * 2);
         ctx.fill();
 
-        comet.x += comet.vx;
-        comet.y += comet.vy;
-        comet.life -= 0.003;
+        if (animated) {
+          comet.x += comet.vx;
+          comet.y += comet.vy;
+          comet.life -= 0.0036;
+        }
 
         if (
           comet.life <= 0 ||
@@ -180,22 +208,98 @@ export function NightSky() {
         }
       }
 
-      if (!motionQuery.matches && time - lastCometTime > 3200 + Math.random() * 5200) {
+      if (
+        animated &&
+        !motionQuery.matches &&
+        largeViewportQuery.matches &&
+        time - lastCometTime > 5200 + Math.random() * 6200
+      ) {
         spawnComet();
         lastCometTime = time;
       }
 
       ctx.globalAlpha = 1;
+    }
+
+    function renderStatic() {
+      renderFrame(lastFrameTime || performance.now(), false);
+    }
+
+    function stopAnimation() {
+      running = false;
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      }
+    }
+
+    function animate(time: number) {
+      if (!running) {
+        return;
+      }
+
+      animationFrame = window.requestAnimationFrame(animate);
+
+      if (time - lastFrameTime < TARGET_FRAME_MS) {
+        return;
+      }
+
+      lastFrameTime = time;
+      renderFrame(time, true);
+    }
+
+    function startAnimation() {
+      if (running || !isDarkTheme || document.hidden) {
+        return;
+      }
+
+      running = true;
       animationFrame = window.requestAnimationFrame(animate);
     }
 
+    function syncScene() {
+      isDarkTheme = document.documentElement.getAttribute("data-theme") === "dark";
+
+      if (!isDarkTheme) {
+        stopAnimation();
+        ctx.clearRect(0, 0, width, height);
+        return;
+      }
+
+      if (document.hidden) {
+        stopAnimation();
+        renderStatic();
+        return;
+      }
+
+      renderStatic();
+      startAnimation();
+    }
+
     resize();
-    animationFrame = window.requestAnimationFrame(animate);
+    syncScene();
     window.addEventListener("resize", resize);
+
+    const themeObserver = new MutationObserver(syncScene);
+    themeObserver.observe(document.documentElement, {
+      attributeFilter: ["data-theme"],
+    });
+
+    function handleEnvironmentChange() {
+      syncScene();
+    }
+
+    document.addEventListener("visibilitychange", handleEnvironmentChange);
+    motionQuery.addEventListener("change", handleEnvironmentChange);
+    largeViewportQuery.addEventListener("change", handleEnvironmentChange);
 
     return () => {
       window.removeEventListener("resize", resize);
-      window.cancelAnimationFrame(animationFrame);
+      document.removeEventListener("visibilitychange", handleEnvironmentChange);
+      motionQuery.removeEventListener("change", handleEnvironmentChange);
+      largeViewportQuery.removeEventListener("change", handleEnvironmentChange);
+      themeObserver.disconnect();
+      stopAnimation();
     };
   }, []);
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { JournalTemplatePicker } from "@/components/JournalTemplatePicker";
 import { Glyph } from "@/components/Glyph";
 import { InteractiveSurface } from "@/components/InteractiveSurface";
@@ -157,7 +157,8 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
     window.location.assign("/login");
   }
 
-  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
   const sortedJournals = [...journals].sort(
     (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime(),
   );
@@ -375,7 +376,7 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
                 return (
                   <Reveal key={journal.id} delay={index * 70}>
                     <InteractiveSurface className="rounded-[1.75rem]">
-                      <article className="cocoon-card p-4 sm:p-6">
+                      <article className="cocoon-card cocoon-virtual-card p-4 sm:p-6">
                         <div className="flex items-start justify-between gap-4">
                           <button type="button" onClick={() => window.location.assign(`/app/journals/${journal.id}`)} className="flex-1 text-left">
                             <div className="flex items-start gap-4">
@@ -431,7 +432,7 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground-muted">Archived spaces</p>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {visibleArchivedJournals.map((journal) => (
-                <article key={journal.id} className="cocoon-soft-card p-5">
+                <article key={journal.id} className="cocoon-soft-card cocoon-virtual-card p-5">
                   <h4 className="font-display text-2xl text-foreground">{journal.name}</h4>
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button type="button" onClick={() => handleRestoreNotebook(journal.id)} className="rounded-full border border-stroke px-4 py-2 text-sm font-semibold text-foreground">Restore</button>

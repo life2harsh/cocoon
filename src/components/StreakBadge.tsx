@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Glyph } from "@/components/Glyph";
 import { api, type Streak } from "@/lib/api";
 
@@ -59,10 +59,22 @@ export function StreakBadge({ variant = "default" }: StreakBadgeProps) {
     activity: [],
   };
   const isRail = variant === "rail";
-  const previewWeeks = buildHeatmapWeeks(resolvedStreak.activity, 84);
-  const fullWeeks = buildHeatmapWeeks(resolvedStreak.activity, 365);
-  const monthCells = buildMonthCells(resolvedStreak.activity, new Date());
-  const maxCount = Math.max(1, ...resolvedStreak.activity.map((item) => item.count));
+  const previewWeeks = useMemo(
+    () => buildHeatmapWeeks(resolvedStreak.activity, 84),
+    [resolvedStreak.activity],
+  );
+  const fullWeeks = useMemo(
+    () => buildHeatmapWeeks(resolvedStreak.activity, 365),
+    [resolvedStreak.activity],
+  );
+  const monthCells = useMemo(
+    () => buildMonthCells(resolvedStreak.activity, new Date()),
+    [resolvedStreak.activity],
+  );
+  const maxCount = useMemo(
+    () => Math.max(1, ...resolvedStreak.activity.map((item) => item.count)),
+    [resolvedStreak.activity],
+  );
 
   return (
     <>
