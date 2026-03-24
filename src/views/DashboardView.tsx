@@ -377,7 +377,7 @@ export default function AppClient({ journals, activeView = "home" }: AppClientPr
                 return (
                   <Reveal key={journal.id} delay={index * 70}>
                     <InteractiveSurface className="rounded-[1.75rem]">
-                      <article className="cocoon-card cocoon-virtual-card p-4 sm:p-6">
+                      <article className="cocoon-card p-4 sm:p-6">
                         <div className="flex items-start justify-between gap-4">
                           <button type="button" onClick={() => window.location.assign(`/app/journals/${journal.id}`)} className="flex-1 text-left">
                             <div className="flex items-start gap-4">
